@@ -1,7 +1,8 @@
 "use client";
 import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { TrashIcon } from "@radix-ui/react-icons";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 import type { FormState } from "@/validations";
 import { removeEvent } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function DeleteEvent({ id, title }: { id: string; title: string }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(
     removeEvent.bind(null, id),
     {} as FormState,
@@ -22,7 +24,11 @@ export function DeleteEvent({ id, title }: { id: string; title: string }) {
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-  }, [state.error]);
+    if (state.success) {
+      toast.success(state.success);
+      router.push("/events");
+    }
+  }, [state.error, state.success, router]);
 
   return (
     <AlertDialog>

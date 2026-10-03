@@ -88,21 +88,26 @@ export async function saveEvent(
   form: FormData,
 ): Promise<FormState> {
   await requireUser();
-  let event: Event;
   try {
+    const multi = form.get("multiDay") === "true";
     const startsAt = `${form.get("date")}T${form.get("time")}:00+05:45`;
+    const endsAt =
+      multi && form.get("endDate") && form.get("endTime")
+        ? `${form.get("endDate")}T${form.get("endTime")}:00+05:45`
+        : null;
     const input = eventSchema.parse({
       title: form.get("title"),
       description: form.get("description"),
       location: form.get("location"),
       visibility: form.get("visibility"),
       startsAt,
+      endsAt,
       tags: String(form.get("tags") ?? "")
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
       inviteEmails: String(form.get("inviteEmails") ?? "")
-        .split(/[,\n]/)
+        .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
     });
@@ -110,13 +115,15 @@ export async function saveEvent(
       method: id ? "PATCH" : "POST",
       body: JSON.stringify(input),
     });
-    event = result.data;
+    revalidatePath("/events");
+    revalidatePath("/dashboard");
+    return {
+      success: id ? "Event updated." : "Event created.",
+      id: result.data.id,
+    };
   } catch (error) {
     return failure(error);
   }
-  revalidatePath("/events");
-  revalidatePath("/dashboard");
-  redirect(`/events/${event.id}?saved=${id ? "updated" : "created"}`);
 }
 
 export async function removeEvent(
@@ -131,7 +138,7 @@ export async function removeEvent(
   }
   revalidatePath("/events");
   revalidatePath("/dashboard");
-  redirect("/events?notice=deleted");
+  return { success: "Event deleted." };
 }
 
 export async function updateRsvp(

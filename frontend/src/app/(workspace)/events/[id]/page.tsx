@@ -1,15 +1,19 @@
+import { requireUser } from "@/lib/auth";
+import { AppShell } from "@/components/workspace/app-shell";
 import { EventDetailPage } from "@/components/workspace/event-detail-page";
 
 export const metadata = { title: "Event details" };
 
 export default async function Page({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
-  const { saved } = await searchParams;
-  return <EventDetailPage id={id} saved={saved} />;
+  return (
+    <AppShell user={user}>
+      <EventDetailPage id={id} />
+    </AppShell>
+  );
 }

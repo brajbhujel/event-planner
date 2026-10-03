@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useEffect } from "react";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 import type { FormState, User } from "@/validations";
 import { updateProfile } from "@/lib/actions";
 import { PageHeading } from "@/components/page-heading";

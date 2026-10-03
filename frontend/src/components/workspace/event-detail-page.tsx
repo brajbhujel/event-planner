@@ -15,15 +15,14 @@ import { formatDate, formatTime, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TagChip } from "@/components/tag-input";
 import { VisibilityBadge } from "./event-table";
 import { DeleteEvent } from "./delete-event";
 import { RsvpForm } from "./rsvp-form";
 import { AttendeesList } from "./attendees-list";
-import { SavedToast } from "./saved-toast";
 
 export async function EventDetailPage({
   id,
-  saved,
 }: {
   id: string;
   saved?: string;
@@ -35,7 +34,6 @@ export async function EventDetailPage({
 
   return (
     <>
-      <SavedToast saved={saved} />
       <Link
         href="/events"
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
@@ -87,14 +85,9 @@ export async function EventDetailPage({
                 {event.description}
               </p>
               {event.tags.length > 0 && (
-                <div className="mt-7 flex flex-wrap gap-2 border-t pt-5">
+                <div className="mt-7 flex flex-wrap gap-1.5 border-t pt-5">
                   {event.tags.map((tag) => (
-                    <Link
-                      key={tag}
-                      href={`/events?period=all&tag=${encodeURIComponent(tag)}`}
-                    >
-                      <Badge className="capitalize hover:bg-muted">{tag}</Badge>
-                    </Link>
+                    <TagChip key={tag} tag={tag} />
                   ))}
                 </div>
               )}
@@ -121,13 +114,24 @@ export async function EventDetailPage({
               {[
                 {
                   icon: CalendarIcon,
-                  label: "Date",
+                  label: event.endsAt ? "Starts" : "Date",
                   value: formatDate(event.startsAt, { weekday: "long" }),
                 },
+                ...(event.endsAt
+                  ? [
+                      {
+                        icon: CalendarIcon,
+                        label: "Ends",
+                        value: formatDate(event.endsAt, { weekday: "long" }),
+                      },
+                    ]
+                  : []),
                 {
                   icon: ClockIcon,
                   label: "Time",
-                  value: `${formatTime(event.startsAt)} · Nepal Time`,
+                  value: event.endsAt
+                    ? `${formatTime(event.startsAt)} – ${formatTime(event.endsAt)} NPT`
+                    : `${formatTime(event.startsAt)} · Nepal Time`,
                 },
                 {
                   icon: PinRightIcon,

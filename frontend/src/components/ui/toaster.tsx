@@ -1,7 +1,16 @@
 "use client";
-
-import { Toaster as Sonner } from "sonner";
+import { Toaster as HotToaster } from "react-hot-toast";
 
 export function Toaster() {
-  return <Sonner richColors position="top-right" />;
+  return (
+    <HotToaster
+      position="top-right"
+      toastOptions={{
+        duration: 3000,
+        style: {
+          fontSize: "14px",
+        },
+      }}
+    />
+  );
 }

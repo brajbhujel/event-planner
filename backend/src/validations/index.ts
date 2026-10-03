@@ -24,7 +24,7 @@ const inviteEmails = z
   .transform((emails) => [...new Set(emails)])
   .default([]);
 
-export const eventSchema = z.object({
+const eventFields = z.object({
   title: z.string().trim().min(3, "Use at least 3 characters.").max(120),
   description: z
     .string()
@@ -33,8 +33,12 @@ export const eventSchema = z.object({
     .max(5000),
   startsAt: z.iso.datetime({
     offset: true,
-    message: "Choose a valid date and time.",
+    message: "Choose a valid start date and time.",
   }),
+  endsAt: z
+    .iso.datetime({ offset: true, message: "Choose a valid end date and time." })
+    .nullable()
+    .optional(),
   location: z.string().trim().min(2, "Enter a location.").max(200),
   visibility: z.enum(["public", "private", "invite"]),
   tags: z
@@ -44,9 +48,21 @@ export const eventSchema = z.object({
   inviteEmails,
 });
 
-export const eventPatchSchema = eventSchema
+export const eventSchema = eventFields.refine(
+  (data) => !data.endsAt || new Date(data.endsAt) >= new Date(data.startsAt),
+  { message: "End must be after start.", path: ["endsAt"] },
+);
+
+export const eventPatchSchema = eventFields
   .partial()
-  .refine((data) => Object.keys(data).length > 0, "Provide at least one field.");
+  .refine((data) => Object.keys(data).length > 0, "Provide at least one field.")
+  .refine(
+    (data) =>
+      !data.endsAt ||
+      !data.startsAt ||
+      new Date(data.endsAt) >= new Date(data.startsAt),
+    { message: "End must be after start.", path: ["endsAt"] },
+  );
 
 export const listSchema = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -71,8 +87,9 @@ export type Attendee = {
   email: string;
   status: "yes" | "no" | "maybe" | "pending";
 };
-export type Event = Omit<EventInput, "inviteEmails"> & {
+export type Event = Omit<EventInput, "inviteEmails" | "endsAt"> & {
   id: string;
+  endsAt: string | null;
   creatorId: string;
   creatorName: string;
   createdAt: string;
@@ -96,6 +113,7 @@ export type Dashboard = {
   past: number;
   mine: number;
   private: number;
+  invited: number;
   nextEvent: Event | null;
   recent: Event[];
   months: { month: string; count: number }[];

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
+import { TagChip } from "@/components/tag-input";
 
 export function VisibilityBadge({
   visibility,
@@ -99,24 +100,14 @@ export function EventTable({
                       >
                         {event.title}
                       </Link>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
+                      <div className="mt-1.5 flex flex-wrap gap-1">
                         {event.tags.length ? (
-                          event.tags.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-xs capitalize text-muted-foreground"
-                            >
-                              {tag}
-                            </span>
+                          event.tags.map((tag) => (
+                            <TagChip key={tag} tag={tag} />
                           ))
                         ) : (
                           <span className="text-xs text-muted-foreground">
                             By {event.creatorName}
-                          </span>
-                        )}
-                        {event.tags.length > 2 && (
-                          <span className="text-xs text-muted-foreground">
-                            +{event.tags.length - 2}
                           </span>
                         )}
                       </div>

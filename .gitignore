@@ -1,13 +1,10 @@
 node_modules/
+.next/
+dist/
 .env
-/public/uploads/
-package-lock.json
-# macOS / external drive metadata
+.env.local
+*.tsbuildinfo
 .DS_Store
 ._*
-.AppleDouble
-.LSOverride
-.Spotlight-V100/
-.Trashes/
+coverage/
 scripts/
-postman/

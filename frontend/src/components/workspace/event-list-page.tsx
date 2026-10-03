@@ -4,6 +4,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@radix-ui/react-icons";
+import { Suspense } from "react";
 import { getEvents, getTags } from "@/lib/data";
 import { listSchema } from "@/validations";
 import { PageHeading } from "@/components/page-heading";
@@ -11,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EventTable } from "./event-table";
 import { EventFilters } from "./event-filters";
-import { DeletedToast } from "./deleted-toast";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -59,7 +59,6 @@ export async function EventListPage({
 
   return (
     <>
-      <DeletedToast notice={searchParams.notice} />
       <PageHeading
         eyebrow={mine ? "Your plans" : "Browse"}
         title={mine ? "My events" : "All events"}
@@ -78,17 +77,9 @@ export async function EventListPage({
         }
       />
       <Card className="overflow-hidden">
-        <EventFilters
-          tags={tags}
-          mine={mine}
-          initial={{
-            search: filters.search,
-            period: filters.period,
-            visibility: filters.visibility,
-            tag: filters.tag,
-            sort: filters.sort,
-          }}
-        />
+        <Suspense fallback={<div className="h-24 border-b" />}>
+          <EventFilters tags={tags} />
+        </Suspense>
         <EventTable events={result.data} filtered={filtered} />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
           <p className="text-xs text-muted-foreground">

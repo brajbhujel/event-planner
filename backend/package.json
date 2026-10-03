@@ -6,8 +6,12 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "lint": "tsc --noEmit",
+    "test": "tsc --noEmit",
     "db:migrate": "knex --knexfile knexfile.cjs migrate:latest",
-    "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback"
+    "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

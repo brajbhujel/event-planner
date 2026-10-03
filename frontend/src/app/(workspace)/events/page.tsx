@@ -1,3 +1,5 @@
+import { requireUser } from "@/lib/auth";
+import { AppShell } from "@/components/workspace/app-shell";
 import {
   EventListPage,
   type SearchParams,
@@ -10,5 +12,10 @@ export default async function Page({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  return <EventListPage searchParams={await searchParams} />;
+  const user = await requireUser();
+  return (
+    <AppShell user={user}>
+      <EventListPage searchParams={await searchParams} />
+    </AppShell>
+  );
 }

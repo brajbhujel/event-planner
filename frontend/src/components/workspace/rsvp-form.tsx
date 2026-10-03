@@ -1,7 +1,7 @@
 "use client";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 import type { Event } from "@/validations";
 import { updateRsvp } from "@/lib/actions";
 import { Button } from "@/components/ui/button";

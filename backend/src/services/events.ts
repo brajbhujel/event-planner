@@ -40,6 +40,7 @@ function eventSelect(userId: string, connection: Knex | Knex.Transaction = db) {
       "e.location",
       "e.visibility",
       "e.starts_at as startsAt",
+      "e.ends_at as endsAt",
       "e.creator_id as creatorId",
       "u.name as creatorName",
       "e.created_at as createdAt",
@@ -255,6 +256,7 @@ export async function createEvent(input: EventInput, userId: string) {
       title: input.title,
       description: input.description,
       starts_at: input.startsAt,
+      ends_at: input.endsAt ?? null,
       location: input.location,
       visibility: input.visibility,
     });
@@ -279,7 +281,7 @@ export async function updateEvent(
     }
     assertUpcoming(event.starts_at);
 
-    const { tags, startsAt, inviteEmails, ...rest } = input;
+    const { tags, startsAt, endsAt, inviteEmails, ...rest } = input;
     if (startsAt) assertUpcoming(startsAt);
 
     await trx("events")
@@ -287,6 +289,7 @@ export async function updateEvent(
       .update({
         ...rest,
         ...(startsAt ? { starts_at: startsAt } : {}),
+        ...(endsAt !== undefined ? { ends_at: endsAt } : {}),
         updated_at: trx.fn.now(),
       });
     if (tags) await syncTags(trx, id, tags);
@@ -337,7 +340,7 @@ export async function setRsvp(
 }
 
 export async function dashboard(userId: string): Promise<Dashboard> {
-  const [counts, nextEvent, recent, months] = await Promise.all([
+  const [counts, invitedRow, nextEvent, recent, months] = await Promise.all([
     visibleEvents(userId)
       .select(
         db.raw(
@@ -345,6 +348,12 @@ export async function dashboard(userId: string): Promise<Dashboard> {
           [userId],
         ),
       )
+      .first(),
+    db("invitations as i")
+      .join("events as e", "e.id", "i.event_id")
+      .where("i.user_id", userId)
+      .whereNot("e.creator_id", userId)
+      .count("i.event_id as total")
       .first(),
     eventSelect(userId)
       .where("e.starts_at", ">=", db.fn.now())
@@ -363,6 +372,7 @@ export async function dashboard(userId: string): Promise<Dashboard> {
 
   return {
     ...counts,
+    invited: Number(invitedRow?.total ?? 0),
     nextEvent: nextEvent
       ? ({ ...nextEvent, inviteEmails: [], attendees: null } as Event)
       : null,

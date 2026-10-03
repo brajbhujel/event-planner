@@ -1,11 +1,11 @@
 import Link from "next/link";
 import {
-  PlusIcon,
   ArrowRightIcon,
   CalendarIcon,
   CounterClockwiseClockIcon,
   PersonIcon,
   LockClosedIcon,
+  EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
 import { requireUser } from "@/lib/auth";
@@ -38,6 +38,12 @@ export async function DashboardPage() {
       href: "/my-events",
     },
     {
+      label: "Invites",
+      value: data.invited,
+      icon: EnvelopeClosedIcon,
+      href: "/events?visibility=invite&period=all",
+    },
+    {
       label: "Private",
       value: data.private,
       icon: LockClosedIcon,
@@ -50,17 +56,9 @@ export async function DashboardPage() {
       <PageHeading
         eyebrow="Overview"
         title={`Hello, ${user.name.split(" ")[0]}.`}
-        description="What’s coming up and what you’ve organized."
-        action={
-          <Button asChild>
-            <Link href="/events/new">
-              <PlusIcon />
-              Create event
-            </Link>
-          </Button>
-        }
+        description="What’s coming up and what you’ve been invited to."
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map(({ label, value, icon: Icon, href }) => (
           <Link key={label} href={href} className="rounded-lg">
             <Card className="h-full border-l-[3px] border-l-primary/75 hover:border-primary/40">
@@ -134,16 +132,9 @@ export async function DashboardPage() {
                   <CalendarIcon className="size-5 text-muted-foreground" />
                 </span>
                 <h3 className="text-base font-semibold">No upcoming events</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Create your first event to get started.
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Create an event from All events when you’re ready.
                 </p>
-                <Link
-                  href="/events/new"
-                  className="mt-auto flex items-center justify-between pt-5 text-xs font-semibold text-primary"
-                >
-                  Plan an event
-                  <ArrowRightIcon />
-                </Link>
               </>
             )}
           </CardContent>

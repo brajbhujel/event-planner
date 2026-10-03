@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
   CalendarIcon,
@@ -11,7 +12,7 @@ import {
 } from "@radix-ui/react-icons";
 import { eventSchema, type Event, type FormState } from "@/validations";
 import { z } from "zod";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 import { saveEvent } from "@/lib/actions";
 import { dateInput, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,11 +22,19 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Field } from "@/components/field";
 import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
+import { TagInput } from "@/components/tag-input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -34,7 +43,49 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+function DateField({
+  label,
+  value,
+  onChange,
+  error,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string[];
+}) {
+  const selected = value ? new Date(`${value}T12:00:00`) : undefined;
+  return (
+    <Field id={label} label={label} error={error}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              "w-full justify-start font-normal",
+              !value && "text-muted-foreground",
+            )}
+          >
+            <CalendarIcon className="mr-2 size-4" />
+            {value ? format(selected!, "PPP") : "Pick a date"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={selected}
+            onSelect={(d) => d && onChange(format(d, "yyyy-MM-dd"))}
+            captionLayout="dropdown"
+          />
+        </PopoverContent>
+      </Popover>
+    </Field>
+  );
+}
+
 export function EventForm({ event }: { event?: Event }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedRef = useRef(false);
   const [state, action, pending] = useActionState(
@@ -44,17 +95,28 @@ export function EventForm({ event }: { event?: Event }) {
   const [local, setLocal] = useState<FormState>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const errors = local.fields ?? state.fields;
-  const initial = event
-    ? dateInput(event.startsAt)
-    : { date: "", time: "09:00" };
-  const [date, setDate] = useState(initial.date);
-  const [time, setTime] = useState(initial.time);
+  const start = event ? dateInput(event.startsAt) : { date: "", time: "09:00" };
+  const end = event?.endsAt
+    ? dateInput(event.endsAt)
+    : { date: "", time: "17:00" };
+  const [date, setDate] = useState(start.date);
+  const [time, setTime] = useState(start.time);
+  const [endDate, setEndDate] = useState(end.date);
+  const [endTime, setEndTime] = useState(end.time);
+  const [multiDay, setMultiDay] = useState(Boolean(event?.endsAt));
   const [visibility, setVisibility] = useState(event?.visibility ?? "public");
-  const selectedDate = date ? new Date(`${date}T12:00:00`) : undefined;
+  const [tags, setTags] = useState<string[]>(event?.tags ?? []);
+  const [inviteEmails, setInviteEmails] = useState<string[]>(
+    event?.inviteEmails ?? [],
+  );
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-  }, [state.error]);
+    if (state.success && state.id) {
+      toast.success(state.success);
+      router.push(`/events/${state.id}`);
+    }
+  }, [state.error, state.success, state.id, router]);
 
   return (
     <>
@@ -71,18 +133,24 @@ export function EventForm({ event }: { event?: Event }) {
           const form = new FormData(e.currentTarget);
           form.set("date", date);
           form.set("time", time);
+          form.set("multiDay", String(multiDay));
+          form.set("endDate", endDate);
+          form.set("endTime", endTime);
           form.set("visibility", visibility);
+          form.set("tags", tags.join(","));
+          form.set("inviteEmails", inviteEmails.join(","));
           const parsed = eventSchema.safeParse({
-            ...Object.fromEntries(form),
+            title: form.get("title"),
+            description: form.get("description"),
+            location: form.get("location"),
+            visibility,
             startsAt: `${date}T${time}:00+05:45`,
-            tags: String(form.get("tags") ?? "")
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean),
-            inviteEmails: String(form.get("inviteEmails") ?? "")
-              .split(/[,\n]/)
-              .map((t) => t.trim())
-              .filter(Boolean),
+            endsAt:
+              multiDay && endDate
+                ? `${endDate}T${endTime}:00+05:45`
+                : null,
+            tags,
+            inviteEmails,
           });
           if (!parsed.success) {
             setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
@@ -95,7 +163,12 @@ export function EventForm({ event }: { event?: Event }) {
       >
         <input type="hidden" name="date" value={date} />
         <input type="hidden" name="time" value={time} />
+        <input type="hidden" name="multiDay" value={String(multiDay)} />
+        <input type="hidden" name="endDate" value={endDate} />
+        <input type="hidden" name="endTime" value={endTime} />
         <input type="hidden" name="visibility" value={visibility} />
+        <input type="hidden" name="tags" value={tags.join(",")} />
+        <input type="hidden" name="inviteEmails" value={inviteEmails.join(",")} />
 
         <div className="space-y-6">
           <Card>
@@ -109,8 +182,6 @@ export function EventForm({ event }: { event?: Event }) {
                   name="title"
                   defaultValue={event?.title}
                   placeholder="e.g. Saturday design workshop"
-                  minLength={3}
-                  maxLength={120}
                   required
                 />
               </Field>
@@ -123,25 +194,16 @@ export function EventForm({ event }: { event?: Event }) {
                   id="description"
                   name="description"
                   defaultValue={event?.description}
-                  placeholder="What should people know?"
-                  minLength={10}
-                  maxLength={5000}
                   required
                   rows={6}
                 />
               </Field>
-              <Field
-                id="tags"
-                label="Tags"
-                hint="Comma-separated, up to 5."
-                error={errors?.tags}
-              >
-                <Input
-                  id="tags"
-                  name="tags"
-                  defaultValue={event?.tags.join(", ")}
-                  placeholder="Workshop, Design"
-                  maxLength={170}
+              <Field id="tags" label="Tags" hint="Up to 5. Type and press comma." error={errors?.tags}>
+                <TagInput
+                  value={tags}
+                  onChange={setTags}
+                  max={5}
+                  placeholder="workshop, design"
                 />
               </Field>
             </CardContent>
@@ -152,47 +214,55 @@ export function EventForm({ event }: { event?: Event }) {
               <h2 className="text-sm font-semibold">When & where</h2>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Duration
+                </label>
+                <Select
+                  value={multiDay ? "multi" : "single"}
+                  onValueChange={(v) => setMultiDay(v === "multi")}
+                >
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">One day</SelectItem>
+                    <SelectItem value="multi">Multi day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field id="date" label="Event date" error={errors?.startsAt}>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start font-normal",
-                          !date && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 size-4" />
-                        {date ? format(selectedDate!, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(d) => {
-                          if (!d) return;
-                          setDate(format(d, "yyyy-MM-dd"));
-                        }}
-                        captionLayout="dropdown"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </Field>
+                <DateField
+                  label={multiDay ? "Start date" : "Event date"}
+                  value={date}
+                  onChange={setDate}
+                  error={errors?.startsAt}
+                />
                 <Field id="time" label="Start time" hint="Nepal Time (NPT)">
                   <TimePicker value={time} onChange={setTime} />
                 </Field>
               </div>
+
+              {multiDay && (
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <DateField
+                    label="End date"
+                    value={endDate}
+                    onChange={setEndDate}
+                    error={errors?.endsAt}
+                  />
+                  <Field id="endTime" label="End time">
+                    <TimePicker value={endTime} onChange={setEndTime} />
+                  </Field>
+                </div>
+              )}
+
               <Field id="location" label="Location" error={errors?.location}>
                 <Input
                   id="location"
                   name="location"
                   defaultValue={event?.location}
-                  placeholder="Venue or meeting link"
-                  minLength={2}
-                  maxLength={200}
                   required
                 />
               </Field>
@@ -204,7 +274,7 @@ export function EventForm({ event }: { event?: Event }) {
               <CardHeader>
                 <h2 className="text-sm font-semibold">Invitees</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Emails of people who already have an account.
+                  People who already have an account. Type email and press comma.
                 </p>
               </CardHeader>
               <CardContent>
@@ -213,12 +283,12 @@ export function EventForm({ event }: { event?: Event }) {
                   label="Invite emails"
                   error={errors?.inviteEmails}
                 >
-                  <Textarea
-                    id="inviteEmails"
-                    name="inviteEmails"
-                    defaultValue={event?.inviteEmails?.join("\n")}
-                    placeholder={"friend@example.com\nother@example.com"}
-                    rows={4}
+                  <TagInput
+                    value={inviteEmails}
+                    onChange={setInviteEmails}
+                    max={20}
+                    placeholder="friend@example.com"
+                    capitalize={false}
                   />
                 </Field>
               </CardContent>
@@ -227,22 +297,16 @@ export function EventForm({ event }: { event?: Event }) {
 
           <div className="flex items-center justify-end gap-3 border-t pt-5">
             <Button asChild variant="outline">
-              <Link href={event ? `/events/${event.id}` : "/events"}>
-                Cancel
-              </Link>
+              <Link href={event ? `/events/${event.id}` : "/events"}>Cancel</Link>
             </Button>
             <Button type="submit" disabled={pending}>
               <CheckIcon />
-              {pending
-                ? "Saving…"
-                : event
-                  ? "Save changes"
-                  : "Create event"}
+              {pending ? "Saving…" : event ? "Save changes" : "Create event"}
             </Button>
           </div>
         </div>
 
-        <aside className="space-y-5">
+        <aside>
           <Card>
             <CardHeader>
               <h2 className="text-sm font-semibold">Who can see this?</h2>
@@ -259,13 +323,13 @@ export function EventForm({ event }: { event?: Event }) {
                   {
                     value: "invite" as const,
                     title: "Invite only",
-                    text: "Only people you invite can see it.",
+                    text: "Only people you invite.",
                     icon: EnvelopeClosedIcon,
                   },
                   {
                     value: "private" as const,
                     title: "Private",
-                    text: "Only you. No attendees list.",
+                    text: "Only you. No attendees.",
                     icon: LockClosedIcon,
                   },
                 ].map(({ value, title, text, icon: Icon }) => (
@@ -286,9 +350,7 @@ export function EventForm({ event }: { event?: Event }) {
                         <Icon />
                         {title}
                       </div>
-                      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                        {text}
-                      </p>
+                      <p className="mt-1.5 text-xs text-muted-foreground">{text}</p>
                     </div>
                   </label>
                 ))}
@@ -304,9 +366,7 @@ export function EventForm({ event }: { event?: Event }) {
             {event ? "Save these changes?" : "Create this event?"}
           </AlertDialogTitle>
           <AlertDialogDescription className="mt-2 text-sm text-muted-foreground">
-            {event
-              ? "Your updates will replace the current event details."
-              : "This will publish the event with the details you entered."}
+            Confirm to continue.
           </AlertDialogDescription>
           <div className="mt-6 flex justify-end gap-2">
             <AlertDialogCancel asChild>

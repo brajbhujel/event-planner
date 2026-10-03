@@ -18,29 +18,38 @@ export const profileSchema = z.object({
   name: z.string().trim().min(2, "Use at least 2 characters.").max(80),
 });
 
-export const eventSchema = z.object({
-  title: z.string().trim().min(3, "Use at least 3 characters.").max(120),
-  description: z
-    .string()
-    .trim()
-    .min(10, "Tell guests a little more (at least 10 characters).")
-    .max(5000),
-  startsAt: z.iso.datetime({
-    offset: true,
-    message: "Choose a valid date and time.",
-  }),
-  location: z.string().trim().min(2, "Enter a location.").max(200),
-  visibility: z.enum(["public", "private", "invite"]),
-  tags: z
-    .array(z.string().trim().min(1).max(32).toLowerCase())
-    .max(5, "Choose up to 5 tags.")
-    .transform((tags) => [...new Set(tags)]),
-  inviteEmails: z
-    .array(z.string().trim().toLowerCase().pipe(z.email().max(254)))
-    .max(20, "Invite up to 20 people.")
-    .transform((emails) => [...new Set(emails)])
-    .default([]),
-});
+export const eventSchema = z
+  .object({
+    title: z.string().trim().min(3, "Use at least 3 characters.").max(120),
+    description: z
+      .string()
+      .trim()
+      .min(10, "Tell guests a little more (at least 10 characters).")
+      .max(5000),
+    startsAt: z.iso.datetime({
+      offset: true,
+      message: "Choose a valid start date and time.",
+    }),
+    endsAt: z
+      .iso.datetime({ offset: true, message: "Choose a valid end date and time." })
+      .nullable()
+      .optional(),
+    location: z.string().trim().min(2, "Enter a location.").max(200),
+    visibility: z.enum(["public", "private", "invite"]),
+    tags: z
+      .array(z.string().trim().min(1).max(32).toLowerCase())
+      .max(5, "Choose up to 5 tags.")
+      .transform((tags) => [...new Set(tags)]),
+    inviteEmails: z
+      .array(z.string().trim().toLowerCase().pipe(z.email().max(254)))
+      .max(20, "Invite up to 20 people.")
+      .transform((emails) => [...new Set(emails)])
+      .default([]),
+  })
+  .refine(
+    (data) => !data.endsAt || new Date(data.endsAt) >= new Date(data.startsAt),
+    { message: "End must be after start.", path: ["endsAt"] },
+  );
 
 export const listSchema = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -58,6 +67,7 @@ export const rsvpSchema = z.object({ status: z.enum(["yes", "no", "maybe"]) });
 export type FormState = {
   error?: string;
   success?: string;
+  id?: string;
   fields?: Record<string, string[] | undefined>;
 };
 
@@ -75,6 +85,7 @@ export type Event = {
   title: string;
   description: string;
   startsAt: string;
+  endsAt: string | null;
   location: string;
   visibility: "public" | "private" | "invite";
   tags: string[];
@@ -103,6 +114,7 @@ export type Dashboard = {
   past: number;
   mine: number;
   private: number;
+  invited: number;
   nextEvent: Event | null;
   recent: Event[];
   months: { month: string; count: number }[];
