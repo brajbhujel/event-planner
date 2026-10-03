@@ -1,0 +1,13 @@
+node_modules/
+.env
+/public/uploads/
+package-lock.json
+# macOS / external drive metadata
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100/
+.Trashes/
+scripts/
+postman/
