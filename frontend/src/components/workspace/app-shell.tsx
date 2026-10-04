@@ -10,6 +10,7 @@ import {
 import type { User } from "@/validations";
 import { Brand } from "@/components/brand";
 import { UserMenu } from "./user-menu";
+import { UserProvider } from "./user-context";
 import {
   Sidebar,
   SidebarContent,
@@ -100,21 +101,23 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background px-4">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-1 h-4" />
-            <span className="text-sm text-muted-foreground">Event planner</span>
-          </div>
-          <UserMenu user={user} />
-        </header>
-        <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-7 px-4 py-6 sm:px-7 lg:px-8">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <UserProvider user={user}>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background px-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-1 h-4" />
+              <span className="text-sm text-muted-foreground">Event planner</span>
+            </div>
+            <UserMenu user={user} />
+          </header>
+          <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-7 px-4 py-6 sm:px-7 lg:px-8">
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </UserProvider>
   );
 }

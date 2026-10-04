@@ -14,6 +14,7 @@ import { eventSchema, type Event, type FormState } from "@/validations";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { saveEvent } from "@/lib/actions";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { dateInput, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +114,7 @@ export function EventForm({ event }: { event?: Event }) {
   useEffect(() => {
     if (state.error) toast.error(state.error);
     if (state.success && state.id) {
+      useWorkspaceStore.getState().invalidate();
       toast.success(state.success);
       router.push(`/events/${state.id}`);
     }

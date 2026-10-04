@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
 import {
   ArrowRightIcon,
   CalendarIcon,
@@ -8,16 +11,73 @@ import {
   EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { requireUser } from "@/lib/auth";
-import { getDashboard } from "@/lib/data";
+import { loadDashboardAction } from "@/lib/load-data";
 import { formatDate, formatTime } from "@/lib/utils";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useWorkspaceUser } from "./user-context";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EventTable, VisibilityBadge } from "./event-table";
 
-export async function DashboardPage() {
-  const [user, data] = await Promise.all([requireUser(), getDashboard()]);
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-7" role="status" aria-label="Loading dashboard">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-28 animate-pulse rounded-lg border bg-muted/60" />
+        ))}
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+        <div className="h-96 animate-pulse rounded-lg border bg-muted/60" />
+        <div className="h-96 animate-pulse rounded-lg border bg-muted/60" />
+      </div>
+      <span className="sr-only">Loading dashboard…</span>
+    </div>
+  );
+}
+
+export function DashboardPage() {
+  const user = useWorkspaceUser();
+  const data = useWorkspaceStore((s) => s.dashboard);
+  const setDashboard = useWorkspaceStore((s) => s.setDashboard);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (data) return;
+    let cancelled = false;
+    startTransition(async () => {
+      try {
+        setError(null);
+        const result = await loadDashboardAction();
+        if (!cancelled) setDashboard(result);
+      } catch {
+        if (!cancelled) setError("Could not load dashboard. Try again.");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data, setDashboard]);
+
+  if (error) {
+    return <p className="text-sm text-destructive">{error}</p>;
+  }
+
+  if (!data || (pending && !data)) {
+    return (
+      <>
+        <PageHeading
+          eyebrow="Overview"
+          title={`Hello, ${user.name.split(" ")[0]}.`}
+          description="What’s coming up and what you’ve been invited to."
+        />
+        <DashboardSkeleton />
+      </>
+    );
+  }
+
   const stats = [
     {
       label: "Upcoming",

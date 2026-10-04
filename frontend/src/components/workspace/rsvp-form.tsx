@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import type { Event } from "@/validations";
 import { updateRsvp } from "@/lib/actions";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 
 export function RsvpForm({ event, past }: { event: Event; past: boolean }) {
@@ -42,6 +43,7 @@ export function RsvpForm({ event, past }: { event: Event; past: boolean }) {
                   toast.error(result.error);
                   return;
                 }
+                useWorkspaceStore.getState().invalidate();
                 toast.success("RSVP updated");
                 router.refresh();
               })

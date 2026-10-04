@@ -5,6 +5,7 @@ import { TrashIcon } from "@radix-ui/react-icons";
 import toast from "react-hot-toast";
 import type { FormState } from "@/validations";
 import { removeEvent } from "@/lib/actions";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -25,6 +26,7 @@ export function DeleteEvent({ id, title }: { id: string; title: string }) {
   useEffect(() => {
     if (state.error) toast.error(state.error);
     if (state.success) {
+      useWorkspaceStore.getState().invalidate();
       toast.success(state.success);
       router.push("/events");
     }

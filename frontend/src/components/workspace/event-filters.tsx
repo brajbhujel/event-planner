@@ -1,8 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { CheckIcon, ChevronDownIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -10,13 +17,115 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-export function EventFilters({ tags }: { tags: string[] }) {
+function TagFilter({
+  tags,
+  value,
+  onChange,
+}: {
+  tags: string[];
+  value: string;
+  onChange: (tag: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tags;
+    return tags.filter((tag) => tag.includes(q));
+  }, [tags, query]);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 w-full justify-between font-normal capitalize"
+        >
+          <span className={cn(!value && "text-muted-foreground")}>
+            {value || "All tags"}
+          </span>
+          <ChevronDownIcon className="size-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+        <div className="border-b p-2">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search tags"
+              className="h-8 pl-8"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="max-h-56 overflow-y-auto p-1">
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+              !value && "bg-accent",
+            )}
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+              setQuery("");
+            }}
+          >
+            All tags
+            {!value ? <CheckIcon className="size-4" /> : null}
+          </button>
+          {filtered.length === 0 ? (
+            <p className="px-2 py-3 text-xs text-muted-foreground">No tags match</p>
+          ) : (
+            filtered.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={cn(
+                  "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm capitalize hover:bg-accent",
+                  value === tag && "bg-accent",
+                )}
+                onClick={() => {
+                  onChange(tag);
+                  setOpen(false);
+                  setQuery("");
+                }}
+              >
+                {tag}
+                {value === tag ? <CheckIcon className="size-4" /> : null}
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function EventFilters({
+  tags,
+  defaultPeriod = "upcoming",
+}: {
+  tags: string[];
+  defaultPeriod?: "all" | "upcoming" | "past";
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
-  const period = params.get("period") ?? "upcoming";
+  const period = params.get("period") ?? defaultPeriod;
   const visibility = params.get("visibility") ?? "all";
   const tag = params.get("tag") ?? "";
   const sort = params.get("sort") ?? "date-asc";
@@ -106,24 +215,7 @@ export function EventFilters({ tags }: { tags: string[] }) {
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">Tag</label>
-        <Select
-          value={tag || "__all"}
-          onValueChange={(value) =>
-            push({ tag: value === "__all" ? "" : value })
-          }
-        >
-          <SelectTrigger className="w-full capitalize">
-            <SelectValue placeholder="All tags" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all">All tags</SelectItem>
-            {tags.map((t) => (
-              <SelectItem key={t} value={t} className="capitalize">
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TagFilter tags={tags} value={tag} onChange={(value) => push({ tag: value })} />
       </div>
 
       <div className="space-y-1.5">
