@@ -1,0 +1,242 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Event Planner API",
+    "version": "1.0.0",
+    "description": "REST API for the Event Planner assessment app (auth, events, RSVP, dashboard)."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "summary": "Sign up (sends 10-minute email OTP; does not issue tokens)",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; verify email next",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "needsVerification": { "type": "boolean" },
+                        "email": { "type": "string" },
+                        "testOtp": {
+                          "type": "string",
+                          "description": "Only in non-production"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "summary": "Verify signup OTP",
+        "tags": ["Auth"],
+        "responses": { "200": { "description": "Email verified" } }
+      }
+    },
+    "/auth/resend-otp": {
+      "post": {
+        "summary": "Resend signup OTP (10 min expiry)",
+        "tags": ["Auth"],
+        "responses": { "200": { "description": "OTP sent" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login — may return tokens, needsVerification, or requires2FA (HTTP 200 challenge)",
+        "tags": ["Auth"],
+        "responses": {
+          "200": {
+            "description": "Tokens, or { requires2FA, userId }, or { needsVerification, email }"
+          }
+        }
+      }
+    },
+    "/auth/2fa/session": {
+      "post": {
+        "summary": "Complete login after 2FA challenge (TOTP or backup code)",
+        "tags": ["Auth", "2FA"],
+        "responses": { "200": { "description": "Access + refresh tokens" } }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Rotate access (+ refresh) using refresh token",
+        "tags": ["Auth"],
+        "responses": { "200": { "description": "New token pair" } }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Revoke session",
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "204": { "description": "Logged out" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Current user",
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "User profile" } }
+      },
+      "patch": {
+        "summary": "Update name",
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Updated user" } }
+      }
+    },
+    "/auth/2fa/status": {
+      "get": {
+        "summary": "2FA status + remaining backup codes",
+        "tags": ["2FA"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Status" } }
+      }
+    },
+    "/auth/2fa/setup": {
+      "post": {
+        "summary": "Start 2FA setup (QR + secret)",
+        "tags": ["2FA"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "qrDataUrl + secret" } }
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "summary": "Confirm TOTP and enable 2FA (returns backup codes once)",
+        "tags": ["2FA"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "backupCodes" } }
+      }
+    },
+    "/auth/2fa/disable": {
+      "post": {
+        "summary": "Disable 2FA with TOTP or backup code",
+        "tags": ["2FA"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Disabled" } }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "List visible events",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Paginated events" } }
+      },
+      "post": {
+        "summary": "Create event",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Created event" } }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "summary": "Event detail",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": { "200": { "description": "Event" } }
+      },
+      "patch": {
+        "summary": "Update event (organizer, upcoming only)",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": { "200": { "description": "Updated event" } }
+      },
+      "delete": {
+        "summary": "Delete event",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/events/{id}/rsvp": {
+      "put": {
+        "summary": "Set RSVP",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "RSVP saved" } }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "summary": "Dashboard stats",
+        "tags": ["Dashboard"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Stats" } }
+      }
+    },
+    "/tags": {
+      "get": {
+        "summary": "Tags used on visible events",
+        "tags": ["Events"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Tag names" } }
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
-import { useActionState, useEffect, useRef, useState } from "react";
+
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, startOfDay } from "date-fns";
@@ -99,20 +100,53 @@ export function EventForm({ event }: { event?: Event }) {
   const [local, setLocal] = useState<FormState>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const errors = local.fields ?? state.fields;
-  const start = event ? dateInput(event.startsAt) : { date: "", time: "09:00" };
-  const end = event?.endsAt
-    ? dateInput(event.endsAt)
-    : { date: "", time: "17:00" };
-  const [date, setDate] = useState(start.date);
-  const [time, setTime] = useState(start.time);
-  const [endDate, setEndDate] = useState(end.date);
-  const [endTime, setEndTime] = useState(end.time);
-  const [multiDay, setMultiDay] = useState(Boolean(event?.endsAt));
-  const [visibility, setVisibility] = useState(event?.visibility ?? "public");
-  const [tags, setTags] = useState<string[]>(event?.tags ?? []);
+
+  const initial = useMemo(() => {
+    const start = event ? dateInput(event.startsAt) : { date: "", time: "09:00" };
+    const end = event?.endsAt
+      ? dateInput(event.endsAt)
+      : { date: "", time: "17:00" };
+    return {
+      title: event?.title ?? "",
+      description: event?.description ?? "",
+      location: event?.location ?? "",
+      date: start.date,
+      time: start.time,
+      endDate: end.date,
+      endTime: end.time,
+      multiDay: Boolean(event?.endsAt),
+      visibility: event?.visibility ?? ("public" as const),
+      tags: event?.tags ?? [],
+      inviteEmails: event?.inviteEmails ?? [],
+    };
+  }, [event]);
+
+  const [title, setTitle] = useState(initial.title);
+  const [description, setDescription] = useState(initial.description);
+  const [location, setLocation] = useState(initial.location);
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [endDate, setEndDate] = useState(initial.endDate);
+  const [endTime, setEndTime] = useState(initial.endTime);
+  const [multiDay, setMultiDay] = useState(initial.multiDay);
+  const [visibility, setVisibility] = useState(initial.visibility);
+  const [tags, setTags] = useState<string[]>(initial.tags);
   const [inviteEmails, setInviteEmails] = useState<string[]>(
-    event?.inviteEmails ?? [],
+    initial.inviteEmails,
   );
+
+  const dirty =
+    title !== initial.title ||
+    description !== initial.description ||
+    location !== initial.location ||
+    date !== initial.date ||
+    time !== initial.time ||
+    endDate !== initial.endDate ||
+    endTime !== initial.endTime ||
+    multiDay !== initial.multiDay ||
+    visibility !== initial.visibility ||
+    tags.join(",") !== initial.tags.join(",") ||
+    inviteEmails.join(",") !== initial.inviteEmails.join(",");
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -121,7 +155,7 @@ export function EventForm({ event }: { event?: Event }) {
       toast.success(state.success);
       router.push(`/events/${state.id}`);
     }
-  }, [state.error, state.success, state.id, router]);
+  }, [state, router]);
 
   return (
     <>
@@ -135,25 +169,14 @@ export function EventForm({ event }: { event?: Event }) {
             return;
           }
           e.preventDefault();
-          const form = new FormData(e.currentTarget);
-          form.set("date", date);
-          form.set("time", time);
-          form.set("multiDay", String(multiDay));
-          form.set("endDate", endDate);
-          form.set("endTime", endTime);
-          form.set("visibility", visibility);
-          form.set("tags", tags.join(","));
-          form.set("inviteEmails", inviteEmails.join(","));
           const parsed = eventSchema.safeParse({
-            title: form.get("title"),
-            description: form.get("description"),
-            location: form.get("location"),
+            title,
+            description,
+            location,
             visibility,
             startsAt: `${date}T${time}:00+05:45`,
             endsAt:
-              multiDay && endDate
-                ? `${endDate}T${endTime}:00+05:45`
-                : null,
+              multiDay && endDate ? `${endDate}T${endTime}:00+05:45` : null,
             tags,
             inviteEmails,
           });
@@ -174,6 +197,9 @@ export function EventForm({ event }: { event?: Event }) {
         <input type="hidden" name="visibility" value={visibility} />
         <input type="hidden" name="tags" value={tags.join(",")} />
         <input type="hidden" name="inviteEmails" value={inviteEmails.join(",")} />
+        <input type="hidden" name="title" value={title} />
+        <input type="hidden" name="description" value={description} />
+        <input type="hidden" name="location" value={location} />
 
         <div className="space-y-6">
           <Card>
@@ -184,8 +210,8 @@ export function EventForm({ event }: { event?: Event }) {
               <Field id="title" label="Event name" error={errors?.title}>
                 <Input
                   id="title"
-                  name="title"
-                  defaultValue={event?.title}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Saturday design workshop"
                   required
                 />
@@ -197,13 +223,18 @@ export function EventForm({ event }: { event?: Event }) {
               >
                 <Textarea
                   id="description"
-                  name="description"
-                  defaultValue={event?.description}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   required
                   rows={6}
                 />
               </Field>
-              <Field id="tags" label="Tags" hint="Up to 5. Type and press comma." error={errors?.tags}>
+              <Field
+                id="tags"
+                label="Tags"
+                hint="Up to 5. Type and press comma."
+                error={errors?.tags}
+              >
                 <TagInput
                   value={tags}
                   onChange={setTags}
@@ -250,7 +281,7 @@ export function EventForm({ event }: { event?: Event }) {
                 </Field>
               </div>
 
-              {multiDay && (
+              {multiDay ? (
                 <div className="grid gap-5 sm:grid-cols-2">
                   <DateField
                     label="End date"
@@ -267,20 +298,20 @@ export function EventForm({ event }: { event?: Event }) {
                     <TimePicker value={endTime} onChange={setEndTime} />
                   </Field>
                 </div>
-              )}
+              ) : null}
 
               <Field id="location" label="Location" error={errors?.location}>
                 <Input
                   id="location"
-                  name="location"
-                  defaultValue={event?.location}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   required
                 />
               </Field>
             </CardContent>
           </Card>
 
-          {visibility === "invite" && (
+          {visibility === "invite" ? (
             <Card>
               <CardHeader>
                 <h2 className="text-sm font-semibold">Invitees</h2>
@@ -304,13 +335,16 @@ export function EventForm({ event }: { event?: Event }) {
                 </Field>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
           <div className="flex items-center justify-end gap-3 border-t pt-5">
             <Button asChild variant="outline">
               <Link href={event ? `/events/${event.id}` : "/events"}>Cancel</Link>
             </Button>
-            <Button type="submit" disabled={pending}>
+            <Button
+              type="submit"
+              disabled={pending || (Boolean(event) && !dirty)}
+            >
               <CheckIcon />
               {pending ? "Saving…" : event ? "Save changes" : "Create event"}
             </Button>
@@ -324,26 +358,28 @@ export function EventForm({ event }: { event?: Event }) {
             </CardHeader>
             <CardContent>
               <fieldset className="space-y-3">
-                {[
-                  {
-                    value: "public" as const,
-                    title: "Public",
-                    text: "Visible to everyone signed in.",
-                    icon: GlobeIcon,
-                  },
-                  {
-                    value: "invite" as const,
-                    title: "Invite only",
-                    text: "Only people you invite.",
-                    icon: EnvelopeClosedIcon,
-                  },
-                  {
-                    value: "private" as const,
-                    title: "Private",
-                    text: "Only you. No attendees.",
-                    icon: LockClosedIcon,
-                  },
-                ].map(({ value, title, text, icon: Icon }) => (
+                {(
+                  [
+                    {
+                      value: "public" as const,
+                      title: "Public",
+                      text: "Visible to everyone signed in.",
+                      icon: GlobeIcon,
+                    },
+                    {
+                      value: "invite" as const,
+                      title: "Invite only",
+                      text: "Only people you invite.",
+                      icon: EnvelopeClosedIcon,
+                    },
+                    {
+                      value: "private" as const,
+                      title: "Private",
+                      text: "Only you. No attendees.",
+                      icon: LockClosedIcon,
+                    },
+                  ] as const
+                ).map(({ value, title, text, icon: Icon }) => (
                   <label
                     key={value}
                     className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 has-checked:border-primary/50 has-checked:bg-primary/5"

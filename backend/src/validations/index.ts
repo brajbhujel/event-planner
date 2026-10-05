@@ -92,7 +92,13 @@ export const rsvpSchema = z.object({ status: z.enum(["yes", "no", "maybe"]) });
 export type EventInput = z.infer<typeof eventSchema>;
 export type EventPatch = z.infer<typeof eventPatchSchema>;
 export type ListInput = z.infer<typeof listSchema>;
-export type User = { id: string; name: string; email: string };
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
+};
 export type Attendee = {
   userId: string;
   name: string;

@@ -80,9 +80,23 @@ export type FormState = {
   success?: string;
   id?: string;
   fields?: Record<string, string[] | undefined>;
+  /** Signup / login → go verify email */
+  needsVerification?: boolean;
+  email?: string;
+  /** Login → show 2FA challenge (not an error) */
+  requires2FA?: boolean;
+  userId?: string;
+  /** Non-production OTP echoed from API for local testing */
+  testOtp?: string;
 };
 
-export type User = { id: string; name: string; email: string };
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
+};
 
 export type Attendee = {
   userId: string;

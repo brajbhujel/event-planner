@@ -1,5 +1,8 @@
 import express from "express";
 import helmet from "helmet";
+import fs from "node:fs";
+import path from "node:path";
+import swaggerUi from "swagger-ui-express";
 import { db } from "./config/db";
 import { authRoutes } from "./routes/auth";
 import { eventRoutes } from "./routes/events";
@@ -7,14 +10,23 @@ import { authGuard } from "./middleware/auth";
 import { errorHandler } from "./middleware/error";
 import { dashboard, visibleEvents } from "./services/events";
 
+const openapi = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../openapi.json"), "utf8"),
+) as object;
+
 export const app = express();
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "32kb" }));
 
 app.get("/health", async (_req, res) => {
   await db.raw("select 1");
   res.json({ status: "ok" });
+});
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+app.get("/api/openapi.json", (_req, res) => {
+  res.type("json").send(openapi);
 });
 
 app.use("/api/v1/auth", authRoutes);

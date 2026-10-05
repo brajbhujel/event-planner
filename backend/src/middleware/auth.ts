@@ -1,8 +1,7 @@
 import type { RequestHandler } from "express";
-import jwt from "jsonwebtoken";
-import { env } from "../config/env";
 import { db } from "../config/db";
 import { AppError } from "./error";
+import { verifyAccessToken } from "../services/tokens";
 import type { User } from "../validations";
 
 declare global {
@@ -18,15 +17,9 @@ export const authGuard: RequestHandler = async (req, _res, next) => {
   const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
   if (!token) throw new AppError(401, "Please sign in to continue.");
 
-  let payload: jwt.JwtPayload;
+  let payload: { sub?: string; jti?: string };
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET, {
-      algorithms: ["HS256"],
-    });
-    if (typeof decoded === "string" || !decoded.sub || !decoded.jti) {
-      throw new Error("Invalid claims");
-    }
-    payload = decoded;
+    payload = verifyAccessToken(token);
   } catch {
     throw new AppError(401, "Your session has expired. Please sign in again.");
   }

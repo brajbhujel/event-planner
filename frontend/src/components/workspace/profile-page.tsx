@@ -1,5 +1,6 @@
 "use client";
-import { useActionState } from "react";
+
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import type { FormState, User } from "@/validations";
@@ -9,9 +10,13 @@ import { Field } from "@/components/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { TwoFactorSettings } from "./two-factor-settings";
 
 export function ProfilePage({ user }: { user: User }) {
   const router = useRouter();
+  const [name, setName] = useState(user.name);
+  const dirty = name.trim() !== user.name;
+
   const [state, dispatch, pending] = useActionState(
     async (_prev: FormState, form: FormData) => {
       const next = await updateProfile(_prev, form);
@@ -41,7 +46,8 @@ export function ProfilePage({ user }: { user: User }) {
               <Input
                 id="name"
                 name="name"
-                defaultValue={user.name}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 minLength={2}
                 maxLength={80}
                 required
@@ -50,12 +56,15 @@ export function ProfilePage({ user }: { user: User }) {
             <Field id="email" label="Email">
               <Input id="email" value={user.email} disabled readOnly />
             </Field>
-            <Button disabled={pending}>
+            <Button disabled={pending || !dirty}>
               {pending ? "Saving…" : "Save profile"}
             </Button>
           </form>
         </CardContent>
       </Card>
+      <div className="mt-6">
+        <TwoFactorSettings initiallyEnabled={user.twoFactorEnabled} />
+      </div>
     </>
   );
 }

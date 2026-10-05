@@ -3,10 +3,11 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@/validations";
-import { api, ApiError, SESSION_COOKIE } from "./api";
+import { api, ApiError, SESSION_COOKIE, REFRESH_COOKIE } from "./api";
 
 export const currentUser = cache(async (): Promise<User | null> => {
-  if (!(await cookies()).has(SESSION_COOKIE)) return null;
+  const jar = await cookies();
+  if (!jar.has(SESSION_COOKIE) && !jar.has(REFRESH_COOKIE)) return null;
   try {
     return (await api<{ data: User }>("/auth/me")).data;
   } catch (error) {
