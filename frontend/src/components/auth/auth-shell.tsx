@@ -3,8 +3,8 @@ import { CalendarIcon, CheckIcon, LockClosedIcon } from "@radix-ui/react-icons";
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="grid min-h-[100dvh] bg-white lg:grid-cols-[0.95fr_1.05fr]">
-      <section className="relative hidden flex-col overflow-hidden bg-[#203b5b] p-12 text-white lg:flex xl:p-16">
+    <main className="flex min-h-screen">
+      {/* <section className="relative hidden flex-col overflow-hidden bg-[#203b5b] p-12 text-white lg:flex xl:p-16">
         <Brand light />
         <div className="my-auto py-16">
           <p className="mb-5 text-xs font-medium uppercase tracking-[0.18em] text-white/60">
@@ -48,17 +48,17 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-      </section>
-      <section className="flex min-h-[100dvh] flex-col px-6 py-8 sm:px-12">
+      </section> */}
+      <section className="flex flex-1 flex-col items-center justify-center bg-background px-4 py-12 lg:px-8">
         <div className="lg:hidden">
           <Brand />
         </div>
-        <div className="m-auto w-full max-w-[380px] py-12">
+        <div className="m-auto w-full max-w-95 py-12">
           {children}
-          <div className="mt-10 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          {/* <div className="mt-10 flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <LockClosedIcon className="size-3" />
             Secure sign-in with JWT
-          </div>
+          </div> */}
         </div>
       </section>
     </main>

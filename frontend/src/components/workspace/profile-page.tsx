@@ -1,5 +1,6 @@
 "use client";
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import type { FormState, User } from "@/validations";
 import { updateProfile } from "@/lib/actions";
@@ -10,15 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export function ProfilePage({ user }: { user: User }) {
-  const [state, action, pending] = useActionState(
-    updateProfile,
+  const router = useRouter();
+  const [state, dispatch, pending] = useActionState(
+    async (_prev: FormState, form: FormData) => {
+      const next = await updateProfile(_prev, form);
+      if (next.success) {
+        toast.success(next.success);
+        router.refresh();
+      }
+      if (next.error) toast.error(next.error);
+      return next;
+    },
     {} as FormState,
   );
-
-  useEffect(() => {
-    if (state.success) toast.success(state.success);
-    if (state.error) toast.error(state.error);
-  }, [state.success, state.error]);
 
   return (
     <>
@@ -31,7 +36,7 @@ export function ProfilePage({ user }: { user: User }) {
           <h2 className="text-sm font-semibold">Account</h2>
         </CardHeader>
         <CardContent>
-          <form action={action} className="space-y-5">
+          <form action={dispatch} className="space-y-5">
             <Field id="name" label="Full name" error={state.fields?.name}>
               <Input
                 id="name"

@@ -49,6 +49,17 @@ export const eventSchema = z
   .refine(
     (data) => !data.endsAt || new Date(data.endsAt) >= new Date(data.startsAt),
     { message: "End must be after start.", path: ["endsAt"] },
+  )
+  .refine((data) => new Date(data.startsAt) >= new Date(), {
+    message: "Choose a start time in the future.",
+    path: ["startsAt"],
+  })
+  .refine(
+    (data) => data.visibility !== "invite" || data.inviteEmails.length > 0,
+    {
+      message: "Add at least one invitee for invite-only events.",
+      path: ["inviteEmails"],
+    },
   );
 
 export const listSchema = z.object({

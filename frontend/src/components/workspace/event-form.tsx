@@ -2,7 +2,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import {
   CalendarIcon,
   GlobeIcon,
@@ -49,11 +49,13 @@ function DateField({
   value,
   onChange,
   error,
+  minDate,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   error?: string[];
+  minDate?: Date;
 }) {
   const selected = value ? new Date(`${value}T12:00:00`) : undefined;
   return (
@@ -77,6 +79,7 @@ function DateField({
             mode="single"
             selected={selected}
             onSelect={(d) => d && onChange(format(d, "yyyy-MM-dd"))}
+            disabled={minDate ? { before: minDate } : undefined}
             captionLayout="dropdown"
           />
         </PopoverContent>
@@ -240,6 +243,7 @@ export function EventForm({ event }: { event?: Event }) {
                   value={date}
                   onChange={setDate}
                   error={errors?.startsAt}
+                  minDate={startOfDay(new Date())}
                 />
                 <Field id="time" label="Start time" hint="Nepal Time (NPT)">
                   <TimePicker value={time} onChange={setTime} />
@@ -253,6 +257,11 @@ export function EventForm({ event }: { event?: Event }) {
                     value={endDate}
                     onChange={setEndDate}
                     error={errors?.endsAt}
+                    minDate={
+                      date
+                        ? startOfDay(new Date(`${date}T12:00:00`))
+                        : startOfDay(new Date())
+                    }
                   />
                   <Field id="endTime" label="End time">
                     <TimePicker value={endTime} onChange={setEndTime} />

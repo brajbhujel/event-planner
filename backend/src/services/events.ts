@@ -224,12 +224,17 @@ async function syncInvites(
   await trx("invitations").where({ event_id: eventId }).delete();
   if (!emails.length) return;
 
+  const creator = await trx("users").where({ id: creatorId }).first("email");
+  const targets = emails.filter((email) => email !== creator?.email);
+  if (!targets.length) {
+    throw new AppError(422, "Add at least one invitee besides yourself.");
+  }
+
   const users = await trx("users")
-    .whereIn("email", emails)
-    .whereNot("id", creatorId)
+    .whereIn("email", targets)
     .select("id", "email");
   const found = new Set(users.map((u) => u.email));
-  const missing = emails.filter((email) => !found.has(email));
+  const missing = targets.filter((email) => !found.has(email));
   if (missing.length) {
     throw new AppError(
       422,
@@ -241,13 +246,18 @@ async function syncInvites(
   );
 }
 
-function assertUpcoming(startsAt: string | Date) {
+function assertUpcoming(startsAt: string | Date, message: string) {
   if (new Date(startsAt) < new Date()) {
-    throw new AppError(409, "Past events can’t be edited.");
+    throw new AppError(409, message);
   }
 }
 
 export async function createEvent(input: EventInput, userId: string) {
+  assertUpcoming(input.startsAt, "Choose a start time in the future.");
+  if (input.visibility === "invite" && input.inviteEmails.length === 0) {
+    throw new AppError(422, "Add at least one invitee for invite-only events.");
+  }
+
   const id = randomUUID();
   await db.transaction(async (trx) => {
     await trx("events").insert({
@@ -279,10 +289,17 @@ export async function updateEvent(
     if (event.creator_id !== userId) {
       throw new AppError(403, "Only the organizer can edit this event.");
     }
-    assertUpcoming(event.starts_at);
+    assertUpcoming(event.starts_at, "Past events can’t be edited.");
 
     const { tags, startsAt, endsAt, inviteEmails, ...rest } = input;
-    if (startsAt) assertUpcoming(startsAt);
+    if (startsAt) {
+      assertUpcoming(startsAt, "Choose a start time in the future.");
+    }
+
+    const visibility = rest.visibility ?? event.visibility;
+    if (visibility === "invite" && inviteEmails && inviteEmails.length === 0) {
+      throw new AppError(422, "Add at least one invitee for invite-only events.");
+    }
 
     await trx("events")
       .where({ id, creator_id: userId })
@@ -294,7 +311,6 @@ export async function updateEvent(
       });
     if (tags) await syncTags(trx, id, tags);
 
-    const visibility = rest.visibility ?? event.visibility;
     if (visibility === "invite" && inviteEmails) {
       await syncInvites(trx, id, inviteEmails, userId);
     }
