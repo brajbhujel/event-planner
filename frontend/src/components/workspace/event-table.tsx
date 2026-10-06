@@ -115,9 +115,16 @@ export function EventTable({
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
-                  <p className="text-xs font-medium">
-                    {formatDate(event.startsAt)}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-medium">
+                      {formatDate(event.startsAt)}
+                    </p>
+                    {new Date(event.startsAt) < new Date() ? (
+                      <Badge className="border-transparent bg-muted text-[10px] uppercase text-muted-foreground">
+                        Past
+                      </Badge>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatTime(event.startsAt)} NPT
                   </p>
@@ -155,9 +162,14 @@ export function EventTable({
               <h3 className="font-medium">{event.title}</h3>
               <VisibilityBadge visibility={event.visibility} />
             </div>
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <CalendarIcon />
               {formatDate(event.startsAt)} · {formatTime(event.startsAt)}
+              {new Date(event.startsAt) < new Date() ? (
+                <Badge className="border-transparent bg-muted text-[10px] uppercase text-muted-foreground">
+                  Past
+                </Badge>
+              ) : null}
             </p>
             <p className="text-xs text-muted-foreground">{event.location}</p>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">

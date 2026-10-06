@@ -14,6 +14,18 @@ import { authService, ApiError } from "@/services/auth.service";
 import { eventsService } from "@/services/events.service";
 import { requireUser } from "./auth";
 
+export async function listEvents(query: Record<string, string>) {
+  return eventsService.list(query);
+}
+
+export async function getDashboard() {
+  return eventsService.dashboard();
+}
+
+export async function getTags() {
+  return eventsService.tags();
+}
+
 function failure(error: unknown): FormState {
   if (error instanceof z.ZodError) {
     return {

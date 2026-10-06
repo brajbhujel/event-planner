@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { getEvent } from "@/services/events.service";
+import { eventsService } from "@/services/events.service";
 import { requireUser } from "@/lib/auth";
 import { PageHeading } from "@/components/page-heading";
 import { EventForm } from "./event-form";
@@ -32,7 +32,7 @@ export async function EditEventPage({ id }: { id: string }) {
   const user = await requireUser();
   let event;
   try {
-    event = await getEvent(id);
+    event = await eventsService.get(id);
   } catch {
     notFound();
   }

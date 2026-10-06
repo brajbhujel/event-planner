@@ -11,7 +11,7 @@ import {
   EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { getDashboard } from "@/services/events.service";
+import { getDashboard } from "@/lib/actions";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useWorkspaceUser } from "./user-context";
@@ -83,7 +83,7 @@ export function DashboardPage() {
       label: "Upcoming",
       value: data.upcoming,
       icon: CalendarIcon,
-      href: "/events",
+      href: "/events?period=upcoming",
     },
     {
       label: "Past",

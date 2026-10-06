@@ -3,13 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  PlusIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "@radix-ui/react-icons";
+import { PlusIcon } from "@radix-ui/react-icons";
 import { listSchema } from "@/validations";
-import { listEvents, getTags } from "@/services/events.service";
+import { listEvents, getTags } from "@/lib/actions";
 import {
   eventsCacheKey,
   useWorkspaceStore,
@@ -17,6 +13,7 @@ import {
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Pagination } from "@/components/pagination";
 import { EventTable } from "./event-table";
 import { EventFilters } from "./event-filters";
 
@@ -47,14 +44,14 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
     const parsed = listSchema.safeParse({
       ...raw,
       mine: String(mine),
-      ...(mine && !raw.period ? { period: "all" } : {}),
+      ...(!raw.period ? { period: "all" } : {}),
     });
     return parsed.success
       ? parsed.data
       : listSchema.parse({
-        mine: String(mine),
-        period: mine ? "all" : "upcoming",
-      });
+          mine: String(mine),
+          period: "all",
+        });
   }, [searchParams, mine]);
 
   const query = useMemo(() => {
@@ -114,12 +111,6 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
   };
 
   const showSkeleton = !cached;
-  const { page, pageSize, total, totalPages } = cached?.pagination ?? {
-    page: 1,
-    pageSize: 8,
-    total: 0,
-    totalPages: 1,
-  };
   const filtered = Boolean(
     filters.search ||
     filters.tag ||
@@ -147,7 +138,7 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
         }
       />
       <Card className="overflow-hidden">
-        <EventFilters tags={tags ?? []} defaultPeriod={mine ? "all" : "upcoming"} />
+        <EventFilters tags={tags ?? []} defaultPeriod="all" />
         {error ? (
           <p className="px-5 py-8 text-sm text-destructive">{error}</p>
         ) : showSkeleton || (pending && !cached) ? (
@@ -157,41 +148,24 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
             <EventTable events={cached.data} filtered={filtered} />
             <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
               <p className="text-xs text-muted-foreground">
-                {total
-                  ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`
+                {cached.pagination.total
+                  ? `Showing ${(cached.pagination.page - 1) * cached.pagination.pageSize + 1}–${Math.min(cached.pagination.page * cached.pagination.pageSize, cached.pagination.total)} of ${cached.pagination.total}`
                   : "No events"}
               </p>
-              <nav aria-label="Pagination" className="flex items-center gap-2">
-                {page > 1 ? (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={href({ page: String(page - 1) })}>
-                      <ChevronLeftIcon />
-                      Previous
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" disabled>
-                    <ChevronLeftIcon />
-                    Previous
-                  </Button>
-                )}
-                <span className="px-2 text-xs tabular-nums text-muted-foreground">
-                  {page} / {totalPages}
-                </span>
-                {page < totalPages ? (
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={href({ page: String(page + 1) })}>
-                      Next
-                      <ChevronRightIcon />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" disabled>
-                    Next
-                    <ChevronRightIcon />
-                  </Button>
-                )}
-              </nav>
+              <Pagination
+                page={cached.pagination.page}
+                totalPages={cached.pagination.totalPages}
+                previousHref={
+                  cached.pagination.page > 1
+                    ? href({ page: String(cached.pagination.page - 1) })
+                    : undefined
+                }
+                nextHref={
+                  cached.pagination.page < cached.pagination.totalPages
+                    ? href({ page: String(cached.pagination.page + 1) })
+                    : undefined
+                }
+              />
             </div>
           </>
         )}

@@ -1,5 +1,3 @@
-"use server";
-
 import "@/config/api-auth";
 import api from "@/config/api";
 import type { Dashboard, Event, EventInput, EventList } from "@/validations";
@@ -47,19 +45,3 @@ export const eventsService = {
     return response.data.data;
   },
 };
-
-export async function listEvents(query: Record<string, string>) {
-  return eventsService.list(query);
-}
-
-export async function getDashboard() {
-  return eventsService.dashboard();
-}
-
-export async function getTags() {
-  return eventsService.tags();
-}
-
-export async function getEvent(id: string) {
-  return eventsService.get(id);
-}

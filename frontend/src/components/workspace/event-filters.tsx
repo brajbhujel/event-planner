@@ -116,7 +116,7 @@ function TagFilter({
 
 export function EventFilters({
   tags,
-  defaultPeriod = "upcoming",
+  defaultPeriod = "all",
 }: {
   tags: string[];
   defaultPeriod?: "all" | "upcoming" | "past";
@@ -165,7 +165,7 @@ export function EventFilters({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Title, description, or location"
+            placeholder="Title or location"
             className="pl-9"
           />
         </div>

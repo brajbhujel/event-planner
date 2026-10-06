@@ -66,7 +66,7 @@ export const listSchema = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(8),
   search: z.string().trim().max(120).default(""),
-  period: z.enum(["all", "upcoming", "past"]).default("upcoming"),
+  period: z.enum(["all", "upcoming", "past"]).default("all"),
   visibility: z.enum(["all", "public", "private", "invite"]).default("all"),
   tag: z.string().trim().max(32).toLowerCase().default(""),
   mine: z.enum(["true", "false"]).default("false"),

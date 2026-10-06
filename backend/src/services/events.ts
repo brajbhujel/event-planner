@@ -155,10 +155,7 @@ export async function listEvents(input: ListInput, userId: string) {
   if (input.search) {
     const pattern = `%${input.search.replace(/[\\%_]/g, "\\$&")}%`;
     base.where((q) =>
-      q
-        .whereILike("e.title", pattern)
-        .orWhereILike("e.description", pattern)
-        .orWhereILike("e.location", pattern),
+      q.whereILike("e.title", pattern).orWhereILike("e.location", pattern),
     );
   }
   if (input.tag) {
@@ -356,20 +353,18 @@ export async function setRsvp(
 }
 
 export async function dashboard(userId: string): Promise<Dashboard> {
-  const [counts, invitedRow, nextEvent, recent, months] = await Promise.all([
+  const [counts, nextEvent, recent, months] = await Promise.all([
     visibleEvents(userId)
       .select(
         db.raw(
-          "count(*) filter (where starts_at >= now())::int as upcoming, count(*) filter (where starts_at < now())::int as past, count(*) filter (where creator_id = ?)::int as mine, count(*) filter (where visibility = 'private')::int as private",
+          `count(*) filter (where starts_at >= now())::int as upcoming,
+           count(*) filter (where starts_at < now())::int as past,
+           count(*) filter (where creator_id = ?)::int as mine,
+           count(*) filter (where visibility = 'private')::int as private,
+           count(*) filter (where visibility = 'invite')::int as invited`,
           [userId],
         ),
       )
-      .first(),
-    db("invitations as i")
-      .join("events as e", "e.id", "i.event_id")
-      .where("i.user_id", userId)
-      .whereNot("e.creator_id", userId)
-      .count("i.event_id as total")
       .first(),
     eventSelect(userId)
       .where("e.starts_at", ">=", db.fn.now())
@@ -387,8 +382,11 @@ export async function dashboard(userId: string): Promise<Dashboard> {
   ]);
 
   return {
-    ...counts,
-    invited: Number(invitedRow?.total ?? 0),
+    upcoming: Number(counts?.upcoming ?? 0),
+    past: Number(counts?.past ?? 0),
+    mine: Number(counts?.mine ?? 0),
+    private: Number(counts?.private ?? 0),
+    invited: Number(counts?.invited ?? 0),
     nextEvent: nextEvent
       ? ({ ...nextEvent, inviteEmails: [], attendees: null } as Event)
       : null,

@@ -26,6 +26,7 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
@@ -34,6 +35,33 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/events", label: "All events", icon: CalendarDays },
   { href: "/my-events", label: "My events", icon: UserRound },
 ];
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+}) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton asChild isActive={active} tooltip={label}>
+      <Link
+        href={href}
+        onClick={() => {
+          if (isMobile) setOpenMobile(false);
+        }}
+      >
+        <Icon />
+        <span>{label}</span>
+      </Link>
+    </SidebarMenuButton>
+  );
+}
 
 function AppSidebar() {
   const pathname = usePathname();
@@ -52,23 +80,19 @@ function AppSidebar() {
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map(({ href, label, icon: Icon }) => {
+              {NAV.map(({ href, label, icon }) => {
                 const active =
                   href === "/events"
                     ? pathname.startsWith("/events")
                     : pathname === href;
                 return (
                   <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={label}
-                    >
-                      <Link href={href}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                    <NavLink
+                      href={href}
+                      label={label}
+                      icon={icon}
+                      active={active}
+                    />
                   </SidebarMenuItem>
                 );
               })}
@@ -79,12 +103,12 @@ function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Profile">
-              <Link href="/profile">
-                <UserRound />
-                <span>Profile</span>
-              </Link>
-            </SidebarMenuButton>
+            <NavLink
+              href="/profile"
+              label="Profile"
+              icon={UserRound}
+              active={pathname === "/profile"}
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

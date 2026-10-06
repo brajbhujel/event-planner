@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import cors from "./middleware/cors.middleware";
 import helmet from "helmet";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,6 +19,7 @@ const openapi = JSON.parse(
 const app: Express = express();
 
 app.disable("x-powered-by");
+app.use(cors);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "32kb" }));
 app.use(requestMiddleware);

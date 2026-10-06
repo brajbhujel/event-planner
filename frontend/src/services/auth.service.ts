@@ -1,6 +1,3 @@
-"use server";
-
-import "@/config/api-auth";
 import api, { ApiError } from "@/config/api";
 import { setAuthCookies, clearAuthCookies } from "@/config/api-auth";
 import type { User } from "@/validations";
