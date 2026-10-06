@@ -1,42 +1,46 @@
 # Event Planner
 
-Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) apps.
+Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) apps for the event-planning assessment.
 
-## Backend
+## Engineering decisions
+
+1. **Split API and UI** — REST API is independently demoable (Swagger); Next.js is a cookie-aware client, not a BFF soup.
+2. **Knex + Postgres, no ORM** — Matches the “query builder, not ORM” requirement; migrations live in `backend/db/migrations`.
+3. **Access + refresh JWT bound to a `sessions` row** — Short-lived access (~15m), longer refresh (~7d), logout deletes the session (real revoke). Refresh rotates the session id.
+4. **Email OTP (10 min) + optional TOTP 2FA** — Optional advanced auth from the brief; login 2FA returns HTTP 200 `{ requires2FA, userId }` (challenge, not an error).
+5. **`visibleEvents` helper** — One place for public / creator / invite authorization used by list, detail, and dashboard.
+6. **Normalized tags (M2M) + invitations table** — Clean filtering; invite-only is a deliberate extension of public/private.
+7. **Zustand list/dashboard cache** — Soft navigation does not skeleton-flash; invalidate after mutations.
+8. **Zod on both sides** — Same rules for create/edit/auth; controlled React forms so validation does not wipe input.
+
+## Setup
 
 ```sh
+# backend
 cd backend
-cp .env.example .env
+cp .env.example .env   # set JWT_SECRET and JWT_REFRESH_SECRET (≥32 chars)
 npm install
-npm run db:up        # docker compose postgres from .env
+npm run db:up
 npm run db:migrate
-npm run dev          # http://localhost:9000
+npm run dev            # http://localhost:9000
+
+# frontend
+cd frontend
+cp .env.example .env   # API_URL=http://localhost:9000
+npm install
+npm run dev            # http://localhost:3000
 ```
 
-- API docs (Swagger): http://localhost:9000/api/docs
-- OpenAPI JSON: http://localhost:9000/api/openapi.json
-- Unit tests: `npm test`
+- Swagger: http://localhost:9000/api/docs  
+- Tests: `cd backend && npm test`  
+- Signup OTP is logged in the backend terminal; non-prod UI may show **Test OTP**.
 
 Compose reads `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` from `backend/.env`.
 
-### Auth extras
+## Assumptions
 
-- **Email verification** — 6-digit OTP, 10 min expiry (logged to server console in development)
-- **Refresh tokens** — short access JWT + long refresh JWT; FE retries once on 401
-- **2FA** — TOTP + backup codes; login returns `{ requires2FA, userId }` (HTTP 200 challenge)
-
-## Frontend
-
-```sh
-cd frontend
-cp .env.example .env
-npm install
-npm run dev          # http://localhost:3000
-```
-
-`API_URL` should point at the backend (default `http://localhost:9000`).
-
-## Notes
-
-- CI: `.github/workflows/ci.yml` builds backend + frontend separately.
-- Interview notes: `intv.readme`
+1. Invitees already have accounts (no outbound invite email product).
+2. Postgres is an acceptable relational DB (brief allows any RDBMS).
+3. Next.js App Router is acceptable as the React + TypeScript frontend.
+4. Event datetimes in the UI use Nepal offset (`+05:45`).
+5. “Popularity” sort from the brief is not implemented; we sort by date or created time (`goingCount` is available to extend).

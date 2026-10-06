@@ -52,7 +52,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
   try {
     const response = await fetch(
-      `${process.env.API_URL ?? "http://localhost:9000"}/api/v1/auth/refresh`,
+      `${process.env.API_URL}/api/v1/auth/refresh`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ export async function api<T>(
   let response: Response;
   try {
     response = await fetch(
-      `${process.env.API_URL ?? "http://localhost:9000"}/api/v1${path}`,
+      `${process.env.API_URL}/api/v1${path}`,
       { ...options, headers, cache: "no-store" },
     );
   } catch {
