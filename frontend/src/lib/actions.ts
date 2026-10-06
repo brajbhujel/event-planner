@@ -9,15 +9,9 @@ import {
   rsvpSchema,
   profileSchema,
   type FormState,
-  type User,
-  type Event,
 } from "@/validations";
-import {
-  api,
-  ApiError,
-  setAuthCookies,
-  clearAuthCookies,
-} from "./api";
+import { authService, ApiError } from "@/services/auth.service";
+import { eventsService } from "@/services/events.service";
 import { requireUser } from "./auth";
 
 function failure(error: unknown): FormState {
@@ -34,59 +28,40 @@ function failure(error: unknown): FormState {
   return { error: "Something went wrong. Please try again." };
 }
 
-type AuthPayload = {
-  token?: string;
-  refreshToken?: string;
-  expiresIn?: number;
-  refreshExpiresIn?: number;
-  user?: User;
-  needsVerification?: boolean;
-  email?: string;
-  requires2FA?: boolean;
-  userId?: string;
-  testOtp?: string;
-};
-
 export async function authenticate(
   mode: "login" | "signup",
   _state: FormState,
   form: FormData,
 ): Promise<FormState> {
   try {
-    const schema = mode === "signup" ? signupSchema : loginSchema;
-    const input = schema.parse(Object.fromEntries(form));
-    const { data } = await api<{ data: AuthPayload }>(`/auth/${mode}`, {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    if (mode === "signup") {
+      const input = signupSchema.parse(Object.fromEntries(form));
+      const data = await authService.signup(input);
+      if (data.needsVerification && data.email) {
+        return {
+          needsVerification: true,
+          email: data.email,
+          ...(data.testOtp ? { testOtp: data.testOtp } : {}),
+        };
+      }
+      return { error: "Unexpected signup response." };
+    }
 
-    if (data.needsVerification && data.email) {
+    const input = loginSchema.parse(Object.fromEntries(form));
+    const result = await authService.login(input);
+
+    if (result.kind === "needsVerification") {
       return {
         needsVerification: true,
-        email: data.email,
-        ...(data.testOtp ? { testOtp: data.testOtp } : {}),
+        email: result.email,
+        ...(result.testOtp ? { testOtp: result.testOtp } : {}),
       };
     }
-
-    if (data.requires2FA && data.userId) {
-      return { requires2FA: true, userId: data.userId };
+    if (result.kind === "requires2FA") {
+      return { requires2FA: true, userId: result.userId };
     }
 
-    if (
-      data.token &&
-      data.refreshToken &&
-      data.expiresIn &&
-      data.refreshExpiresIn
-    ) {
-      await setAuthCookies({
-        token: data.token,
-        refreshToken: data.refreshToken,
-        expiresIn: data.expiresIn,
-        refreshExpiresIn: data.refreshExpiresIn,
-      });
-    } else {
-      return { error: "Unexpected login response." };
-    }
+    await authService.setSession(result.session);
   } catch (error) {
     return failure(error);
   }
@@ -106,24 +81,12 @@ export async function completeTwoFactorLogin(
       })
       .parse(Object.fromEntries(form));
 
-    const { data } = await api<{ data: AuthPayload }>("/auth/2fa/session", {
-      method: "POST",
-      body: JSON.stringify({
-        userId: input.userId,
-        code: input.code,
-        backup: input.backup === "true",
-      }),
+    const session = await authService.completeTwoFactor({
+      userId: input.userId,
+      code: input.code,
+      backup: input.backup === "true",
     });
-
-    if (!data.token || !data.refreshToken || !data.expiresIn || !data.refreshExpiresIn) {
-      return { error: "Could not complete 2FA login." };
-    }
-    await setAuthCookies({
-      token: data.token,
-      refreshToken: data.refreshToken,
-      expiresIn: data.expiresIn,
-      refreshExpiresIn: data.refreshExpiresIn,
-    });
+    await authService.setSession(session);
   } catch (error) {
     return failure(error);
   }
@@ -141,11 +104,7 @@ export async function verifyEmailAction(
         code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code."),
       })
       .parse(Object.fromEntries(form));
-
-    await api("/auth/verify-email", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+    await authService.verifyEmail(input);
   } catch (error) {
     return failure(error);
   }
@@ -154,10 +113,7 @@ export async function verifyEmailAction(
 
 export async function resendOtpAction(email: string): Promise<FormState> {
   try {
-    const { data } = await api<{ data: { sent: boolean; testOtp?: string } }>(
-      "/auth/resend-otp",
-      { method: "POST", body: JSON.stringify({ email }) },
-    );
+    const data = await authService.resendOtp(email);
     return {
       success: "A new code was sent.",
       ...(data.testOtp ? { testOtp: data.testOtp } : {}),
@@ -168,12 +124,8 @@ export async function resendOtpAction(email: string): Promise<FormState> {
 }
 
 export async function logout() {
-  try {
-    await api("/auth/logout", { method: "POST" });
-  } catch (error) {
-    if (!(error instanceof ApiError && error.status === 401)) throw error;
-  }
-  await clearAuthCookies();
+  await authService.logout();
+  await authService.clearSession();
   redirect("/login");
 }
 
@@ -184,10 +136,7 @@ export async function updateProfile(
   await requireUser();
   try {
     const input = profileSchema.parse({ name: form.get("name") });
-    await api<{ data: User }>("/auth/me", {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    });
+    await authService.updateProfile(input);
   } catch (error) {
     return failure(error);
   }
@@ -197,20 +146,13 @@ export async function updateProfile(
 
 export async function getTwoFactorStatusAction() {
   await requireUser();
-  const { data } = await api<{
-    data: { twoFactorEnabled: boolean; backupCodesCount: number };
-  }>("/auth/2fa/status");
-  return data;
+  return authService.twoFactorStatus();
 }
 
 export async function setupTwoFactorAction() {
   await requireUser();
   try {
-    const { data } = await api<{ data: { qrDataUrl: string; secret: string } }>(
-      "/auth/2fa/setup",
-      { method: "POST" },
-    );
-    return data;
+    return await authService.setupTwoFactor();
   } catch (error) {
     throw new Error(
       error instanceof ApiError ? error.message : "Could not start 2FA setup.",
@@ -221,10 +163,7 @@ export async function setupTwoFactorAction() {
 export async function verifyTwoFactorAction(token: string) {
   await requireUser();
   try {
-    const { data } = await api<{ data: { backupCodes: string[] } }>(
-      "/auth/2fa/verify",
-      { method: "POST", body: JSON.stringify({ token }) },
-    );
+    const data = await authService.verifyTwoFactor(token);
     revalidatePath("/profile");
     return data;
   } catch (error) {
@@ -237,10 +176,7 @@ export async function verifyTwoFactorAction(token: string) {
 export async function disableTwoFactorAction(token: string) {
   await requireUser();
   try {
-    await api("/auth/2fa/disable", {
-      method: "POST",
-      body: JSON.stringify({ token }),
-    });
+    await authService.disableTwoFactor(token);
     revalidatePath("/profile");
     return { success: true };
   } catch (error) {
@@ -279,15 +215,14 @@ export async function saveEvent(
         .map((t) => t.trim())
         .filter(Boolean),
     });
-    const result = await api<{ data: Event }>(id ? `/events/${id}` : "/events", {
-      method: id ? "PATCH" : "POST",
-      body: JSON.stringify(input),
-    });
+    const result = id
+      ? await eventsService.update(id, input)
+      : await eventsService.create(input);
     revalidatePath("/events");
     revalidatePath("/dashboard");
     return {
       success: id ? "Event updated." : "Event created.",
-      id: result.data.id,
+      id: result.id,
     };
   } catch (error) {
     return failure(error);
@@ -300,7 +235,7 @@ export async function removeEvent(
 ): Promise<FormState> {
   await requireUser();
   try {
-    await api(`/events/${id}`, { method: "DELETE" });
+    await eventsService.remove(id);
   } catch (error) {
     return failure(error);
   }
@@ -316,10 +251,7 @@ export async function updateRsvp(
   await requireUser();
   try {
     rsvpSchema.parse({ status });
-    await api(`/events/${id}/rsvp`, {
-      method: "PUT",
-      body: JSON.stringify({ status }),
-    });
+    await eventsService.rsvp(id, status);
   } catch (error) {
     return failure(error);
   }

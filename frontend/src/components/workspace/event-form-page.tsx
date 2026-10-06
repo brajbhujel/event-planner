@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { getEvent } from "@/lib/data";
+import { getEvent } from "@/services/events.service";
 import { requireUser } from "@/lib/auth";
 import { PageHeading } from "@/components/page-heading";
 import { EventForm } from "./event-form";
@@ -29,7 +29,13 @@ export async function NewEventPage() {
 
 export async function EditEventPage({ id }: { id: string }) {
   if (!z.uuid().safeParse(id).success) notFound();
-  const [user, event] = await Promise.all([requireUser(), getEvent(id)]);
+  const user = await requireUser();
+  let event;
+  try {
+    event = await getEvent(id);
+  } catch {
+    notFound();
+  }
   if (event.creatorId !== user.id) notFound();
   if (new Date(event.startsAt) < new Date()) notFound();
   return (

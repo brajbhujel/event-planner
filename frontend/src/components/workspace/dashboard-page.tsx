@@ -11,7 +11,7 @@ import {
   EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { loadDashboardAction } from "@/lib/load-data";
+import { getDashboard } from "@/services/events.service";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useWorkspaceUser } from "./user-context";
@@ -50,7 +50,7 @@ export function DashboardPage() {
     startTransition(async () => {
       try {
         setError(null);
-        const result = await loadDashboardAction();
+        const result = await getDashboard();
         if (!cancelled) setDashboard(result);
       } catch {
         if (!cancelled) setError("Could not load dashboard. Try again.");

@@ -9,7 +9,7 @@ import {
   PinRightIcon,
   PersonIcon,
 } from "@radix-ui/react-icons";
-import { getEvent } from "@/lib/data";
+import { getEvent } from "@/services/events.service";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatTime, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,13 @@ export async function EventDetailPage({
   saved?: string;
 }) {
   if (!z.uuid().safeParse(id).success) notFound();
-  const [event, user] = await Promise.all([getEvent(id), requireUser()]);
+  const user = await requireUser();
+  let event;
+  try {
+    event = await getEvent(id);
+  } catch {
+    notFound();
+  }
   const owner = event.creatorId === user.id;
   const past = new Date(event.startsAt) < new Date();
 

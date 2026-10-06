@@ -9,7 +9,7 @@ import {
   ChevronRightIcon,
 } from "@radix-ui/react-icons";
 import { listSchema } from "@/validations";
-import { loadEventsAction, loadTagsAction } from "@/lib/load-data";
+import { listEvents, getTags } from "@/services/events.service";
 import {
   eventsCacheKey,
   useWorkspaceStore,
@@ -52,9 +52,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
     return parsed.success
       ? parsed.data
       : listSchema.parse({
-          mine: String(mine),
-          period: mine ? "all" : "upcoming",
-        });
+        mine: String(mine),
+        period: mine ? "all" : "upcoming",
+      });
   }, [searchParams, mine]);
 
   const query = useMemo(() => {
@@ -78,7 +78,7 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
         const jobs: Promise<void>[] = [];
         if (!cached) {
           jobs.push(
-            loadEventsAction(Object.fromEntries(query)).then((result) => {
+            listEvents(Object.fromEntries(query)).then((result) => {
               if (!cancelled) {
                 setEvents(cacheKey, {
                   data: result.data,
@@ -90,7 +90,7 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
         }
         if (!tags) {
           jobs.push(
-            loadTagsAction().then((list) => {
+            getTags().then((list) => {
               if (!cancelled) setTags(list);
             }),
           );
@@ -122,9 +122,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
   };
   const filtered = Boolean(
     filters.search ||
-      filters.tag ||
-      filters.visibility !== "all" ||
-      filters.period !== "all",
+    filters.tag ||
+    filters.visibility !== "all" ||
+    filters.period !== "all",
   );
 
   return (

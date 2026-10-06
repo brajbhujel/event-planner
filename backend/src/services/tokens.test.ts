@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { generateOtpCode } from "./otp";
+import { generateOTPCode, generateReferenceCode } from "../utils/code";
 import {
   issueTokenPair,
   verifyAccessToken,
   verifyRefreshToken,
 } from "./tokens";
 
-describe("generateOtpCode", () => {
-  it("returns a 6-digit string", () => {
-    const code = generateOtpCode();
-    expect(code).toMatch(/^\d{6}$/);
+describe("generateOTPCode", () => {
+  it("returns a 6-digit number", () => {
+    const code = generateOTPCode();
+    expect(code).toBeGreaterThanOrEqual(100000);
+    expect(code).toBeLessThanOrEqual(999999);
+  });
+});
+
+describe("generateReferenceCode", () => {
+  it("returns uppercase alphanumeric of requested length", () => {
+    const code = generateReferenceCode(8);
+    expect(code).toMatch(/^[0-9A-Z]{8}$/);
   });
 });
 

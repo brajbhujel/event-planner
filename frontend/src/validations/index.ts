@@ -75,6 +75,8 @@ export const listSchema = z.object({
 
 export const rsvpSchema = z.object({ status: z.enum(["yes", "no", "maybe"]) });
 
+export type EventInput = z.infer<typeof eventSchema>;
+
 export type FormState = {
   error?: string;
   success?: string;

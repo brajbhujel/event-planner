@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import { ZodError, z } from "zod";
+import { logger } from "../providers/logger";
 
 export class AppError extends Error {
   constructor(
@@ -31,10 +32,15 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
   if (error.type === "entity.parse.failed") {
-    res.status(400).json({ error: { message: "Request body must be valid JSON." } });
+    res
+      .status(400)
+      .json({ error: { message: "Request body must be valid JSON." } });
     return;
   }
-  console.error(error);
+  logger.error("Unhandled error", {
+    message: error instanceof Error ? error.message : "Unknown error",
+    stack: error instanceof Error ? error.stack : error,
+  });
   res.status(500).json({
     error: { message: "Something went wrong. Please try again." },
   });
