@@ -72,8 +72,6 @@ export async function authenticate(
     if (result.kind === "requires2FA") {
       return { requires2FA: true, userId: result.userId };
     }
-
-    await authService.setSession(result.session);
   } catch (error) {
     return failure(error);
   }
@@ -93,12 +91,11 @@ export async function completeTwoFactorLogin(
       })
       .parse(Object.fromEntries(form));
 
-    const session = await authService.completeTwoFactor({
+    await authService.completeTwoFactor({
       userId: input.userId,
       code: input.code,
       backup: input.backup === "true",
     });
-    await authService.setSession(session);
   } catch (error) {
     return failure(error);
   }

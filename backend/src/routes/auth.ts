@@ -22,6 +22,11 @@ import {
   setupTwoFactor,
   verifyAndEnableTwoFactor,
 } from "../services/two-factor";
+import {
+  REFRESH_COOKIE,
+  clearSessionCookies,
+  setSessionCookies,
+} from "../utils/cookies";
 
 export const authRoutes = Router();
 
@@ -55,13 +60,9 @@ async function createSession(user: {
     user_id: user.id,
     expires_at: new Date(Date.now() + env.REFRESH_TTL * 1000),
   });
-  const tokens = issueTokenPair(user.id, id);
   return {
     user: publicUser(user),
-    token: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    expiresIn: tokens.expiresIn,
-    refreshExpiresIn: tokens.refreshExpiresIn,
+    tokens: issueTokenPair(user.id, id),
   };
 }
 
@@ -144,7 +145,6 @@ authRoutes.post("/login", async (req, res) => {
     return;
   }
   if (user.two_factor_enabled) {
-    // Challenge — not an error. Client must call /auth/2fa/session next.
     res.status(200).json({
       data: {
         requires2FA: true,
@@ -153,7 +153,9 @@ authRoutes.post("/login", async (req, res) => {
     });
     return;
   }
-  res.json({ data: await createSession(user) });
+  const session = await createSession(user);
+  setSessionCookies(res, session.tokens);
+  res.json({ data: { user: session.user } });
 });
 
 authRoutes.post("/2fa/session", async (req, res) => {
@@ -170,12 +172,15 @@ authRoutes.post("/2fa/session", async (req, res) => {
     throw new AppError(400, "Two-factor authentication is not enabled.");
   }
   await assertTotpOrBackup(user, input.code, { preferBackup: input.backup });
-  res.json({ data: await createSession(user) });
+  const session = await createSession(user);
+  setSessionCookies(res, session.tokens);
+  res.json({ data: { user: session.user } });
 });
 
 authRoutes.post("/refresh", async (req, res) => {
   const refreshToken =
     (typeof req.body?.refreshToken === "string" && req.body.refreshToken) ||
+    req.cookies?.[REFRESH_COOKIE] ||
     req.headers["x-refresh-token"];
   if (!refreshToken || typeof refreshToken !== "string") {
     throw new AppError(401, "Refresh token required.");
@@ -206,7 +211,6 @@ authRoutes.post("/refresh", async (req, res) => {
     throw new AppError(401, "Your session has expired. Please sign in again.");
   }
 
-  // Rotate session id so stolen refresh tokens can't be reused after refresh.
   const newSessionId = randomUUID();
   await db("sessions").where({ id: session.sessionId }).delete();
   await db("sessions").insert({
@@ -216,15 +220,8 @@ authRoutes.post("/refresh", async (req, res) => {
   });
 
   const tokens = issueTokenPair(session.id, newSessionId);
-  res.json({
-    data: {
-      user: publicUser(session),
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-      refreshExpiresIn: tokens.refreshExpiresIn,
-    },
-  });
+  setSessionCookies(res, tokens);
+  res.json({ data: { user: publicUser(session) } });
 });
 
 authRoutes.get("/me", authGuard, async (req, res) => {
@@ -249,10 +246,10 @@ authRoutes.patch("/me", authGuard, async (req, res) => {
 
 authRoutes.post("/logout", authGuard, async (req, res) => {
   await db("sessions").where({ id: req.sessionId }).delete();
+  clearSessionCookies(res);
   res.status(204).end();
 });
 
-// —— 2FA management (authenticated) ——
 authRoutes.get("/2fa/status", authGuard, async (req, res) => {
   res.json({ data: await getTwoFactorStatus(req.user.id) });
 });

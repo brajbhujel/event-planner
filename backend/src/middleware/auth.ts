@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { db } from "../config/db";
 import { AppError } from "./error";
 import { verifyAccessToken } from "../services/tokens";
+import { SESSION_COOKIE } from "../utils/cookies";
 import type { User } from "../validations";
 
 declare global {
@@ -14,7 +15,9 @@ declare global {
 }
 
 export const authGuard: RequestHandler = async (req, _res, next) => {
-  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+  const token =
+    req.headers.authorization?.match(/^Bearer (.+)$/)?.[1] ??
+    req.cookies?.[SESSION_COOKIE];
   if (!token) throw new AppError(401, "Please sign in to continue.");
 
   let payload: { sub?: string; jti?: string };

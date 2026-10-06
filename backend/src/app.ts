@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import cookieParser from "cookie-parser";
 import cors from "./middleware/cors.middleware";
 import helmet from "helmet";
 import fs from "node:fs";
@@ -21,6 +22,7 @@ const app: Express = express();
 app.disable("x-powered-by");
 app.use(cors);
 app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cookieParser());
 app.use(express.json({ limit: "32kb" }));
 app.use(requestMiddleware);
 

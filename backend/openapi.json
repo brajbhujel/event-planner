@@ -79,11 +79,11 @@
     },
     "/auth/login": {
       "post": {
-        "summary": "Login — may return tokens, needsVerification, or requires2FA (HTTP 200 challenge)",
+        "summary": "Login — sets HttpOnly cookies; body is user only, or needsVerification / requires2FA",
         "tags": ["Auth"],
         "responses": {
           "200": {
-            "description": "Tokens, or { requires2FA, userId }, or { needsVerification, email }"
+            "description": "Set-Cookie session+refresh; JSON { data: { user } }, or challenge payloads"
           }
         }
       }
@@ -92,14 +92,14 @@
       "post": {
         "summary": "Complete login after 2FA challenge (TOTP or backup code)",
         "tags": ["Auth", "2FA"],
-        "responses": { "200": { "description": "Access + refresh tokens" } }
+        "responses": { "200": { "description": "HttpOnly cookies + { data: { user } }" } }
       }
     },
     "/auth/refresh": {
       "post": {
-        "summary": "Rotate access (+ refresh) using refresh token",
+        "summary": "Rotate session cookies using refresh cookie (or body refreshToken)",
         "tags": ["Auth"],
-        "responses": { "200": { "description": "New token pair" } }
+        "responses": { "200": { "description": "New HttpOnly cookies + { data: { user } }" } }
       }
     },
     "/auth/logout": {

@@ -46,18 +46,11 @@ async function refreshAccessToken() {
   if (!refreshToken) return null;
 
   try {
-    const response = await api.post(
-      "/auth/refresh",
-      { refreshToken },
-      { token: null },
-    );
-    const data = response.data.data as TokenBundle;
-    try {
-      await setAuthCookies(data);
-    } catch {
-      // RSC cannot set cookies; middleware covers page navigations.
-    }
-    return data.token;
+    const response = await api.post("/auth/refresh", undefined, {
+      token: null,
+      cookie: `${REFRESH_COOKIE}=${refreshToken}`,
+    });
+    return response.tokens?.token ?? null;
   } catch {
     return null;
   }
@@ -66,4 +59,5 @@ async function refreshAccessToken() {
 bindApiAuth({
   getAccessToken,
   refreshAccessToken,
+  applyAuthCookies: setAuthCookies,
 });

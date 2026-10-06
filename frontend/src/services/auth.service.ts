@@ -1,25 +1,13 @@
 import api, { ApiError } from "@/config/api";
-import { setAuthCookies, clearAuthCookies } from "@/config/api-auth";
+import { clearAuthCookies } from "@/config/api-auth";
 import type { User } from "@/validations";
 
-export type AuthSession = {
-  token: string;
-  refreshToken: string;
-  expiresIn: number;
-  refreshExpiresIn: number;
-  user: User;
-};
-
 export type LoginResult =
-  | { kind: "session"; session: AuthSession }
+  | { kind: "session"; user: User }
   | { kind: "needsVerification"; email: string; testOtp?: string }
   | { kind: "requires2FA"; userId: string };
 
 type AuthPayload = {
-  token?: string;
-  refreshToken?: string;
-  expiresIn?: number;
-  refreshExpiresIn?: number;
   user?: User;
   needsVerification?: boolean;
   email?: string;
@@ -27,25 +15,6 @@ type AuthPayload = {
   userId?: string;
   testOtp?: string;
 };
-
-function toSession(data: AuthPayload): AuthSession | null {
-  if (
-    !data.token ||
-    !data.refreshToken ||
-    !data.expiresIn ||
-    !data.refreshExpiresIn ||
-    !data.user
-  ) {
-    return null;
-  }
-  return {
-    token: data.token,
-    refreshToken: data.refreshToken,
-    expiresIn: data.expiresIn,
-    refreshExpiresIn: data.refreshExpiresIn,
-    user: data.user,
-  };
-}
 
 export const authService = {
   async signup(input: {
@@ -74,20 +43,23 @@ export const authService = {
     if (data.requires2FA && data.userId) {
       return { kind: "requires2FA", userId: data.userId };
     }
-    const session = toSession(data);
-    if (!session) throw new ApiError(500, "Unexpected login response.");
-    return { kind: "session", session };
+    if (!data.user || !response.tokens) {
+      throw new ApiError(500, "Unexpected login response.");
+    }
+    return { kind: "session", user: data.user };
   },
 
   async completeTwoFactor(input: {
     userId: string;
     code: string;
     backup?: boolean;
-  }): Promise<AuthSession> {
+  }): Promise<User> {
     const response = await api.post("/auth/2fa/session", input);
-    const session = toSession(response.data.data);
-    if (!session) throw new ApiError(500, "Could not complete 2FA login.");
-    return session;
+    const data = response.data.data as AuthPayload;
+    if (!data.user || !response.tokens) {
+      throw new ApiError(500, "Could not complete 2FA login.");
+    }
+    return data.user;
   },
 
   async verifyEmail(input: { email: string; code: string }): Promise<void> {
@@ -139,7 +111,6 @@ export const authService = {
     await api.post("/auth/2fa/disable", { token });
   },
 
-  setSession: setAuthCookies,
   clearSession: clearAuthCookies,
 };
 
