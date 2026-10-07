@@ -1,6 +1,6 @@
 # Event Planner
 
-Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) app
+Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) app.
 
 ## Engineering decisions
 
@@ -44,3 +44,5 @@ Compose reads `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` from `backend/.
 3. Next.js App Router is acceptable as the React + TypeScript frontend.
 4. Event datetimes in the UI use Nepal offset (`+05:45`).
 5. “Popularity” sort from the brief is not implemented; we sort by date or created time.
+
+![Architecture](./public/mermaid-diagram.png)

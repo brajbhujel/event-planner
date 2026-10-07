@@ -165,7 +165,7 @@ export function EventFilters({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Title or location"
+            placeholder="Title, description, or location"
             className="pl-9"
           />
         </div>

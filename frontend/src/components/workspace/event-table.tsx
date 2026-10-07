@@ -100,6 +100,11 @@ export function EventTable({
                       >
                         {event.title}
                       </Link>
+                      {event.description ? (
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          {event.description}
+                        </p>
+                      ) : null}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {event.tags.length ? (
                           event.tags.map((tag) => (
@@ -162,6 +167,11 @@ export function EventTable({
               <h3 className="font-medium">{event.title}</h3>
               <VisibilityBadge visibility={event.visibility} />
             </div>
+            {event.description ? (
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {event.description}
+              </p>
+            ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <CalendarIcon />
               {formatDate(event.startsAt)} · {formatTime(event.startsAt)}

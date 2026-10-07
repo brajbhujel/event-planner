@@ -155,7 +155,10 @@ export async function listEvents(input: ListInput, userId: string) {
   if (input.search) {
     const pattern = `%${input.search.replace(/[\\%_]/g, "\\$&")}%`;
     base.where((q) =>
-      q.whereILike("e.title", pattern).orWhereILike("e.location", pattern),
+      q
+        .whereILike("e.title", pattern)
+        .orWhereILike("e.description", pattern)
+        .orWhereILike("e.location", pattern),
     );
   }
   if (input.tag) {
