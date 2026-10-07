@@ -1,5 +1,4 @@
 import api, { ApiError } from "@/config/api";
-import { clearAuthCookies } from "@/config/api-auth";
 import type { User } from "@/validations";
 
 export type LoginResult =
@@ -17,13 +16,9 @@ type AuthPayload = {
 };
 
 export const authService = {
-  async signup(input: {
-    name: string;
-    email: string;
-    password: string;
-  }): Promise<AuthPayload> {
+  async signup(input: { name: string; email: string; password: string }) {
     const response = await api.post("/auth/signup", input);
-    return response.data.data;
+    return response.data.data as AuthPayload;
   },
 
   async login(input: {
@@ -43,9 +38,7 @@ export const authService = {
     if (data.requires2FA && data.userId) {
       return { kind: "requires2FA", userId: data.userId };
     }
-    if (!data.user || !response.tokens) {
-      throw new ApiError(500, "Unexpected login response.");
-    }
+    if (!data.user) throw new ApiError(500, "Unexpected login response.");
     return { kind: "session", user: data.user };
   },
 
@@ -53,65 +46,57 @@ export const authService = {
     userId: string;
     code: string;
     backup?: boolean;
-  }): Promise<User> {
+  }) {
     const response = await api.post("/auth/2fa/session", input);
     const data = response.data.data as AuthPayload;
-    if (!data.user || !response.tokens) {
-      throw new ApiError(500, "Could not complete 2FA login.");
-    }
+    if (!data.user) throw new ApiError(500, "Could not complete 2FA login.");
     return data.user;
   },
 
-  async verifyEmail(input: { email: string; code: string }): Promise<void> {
+  async verifyEmail(input: { email: string; code: string }) {
     await api.post("/auth/verify-email", input);
   },
 
-  async resendOtp(email: string): Promise<{ sent: boolean; testOtp?: string }> {
+  async resendOtp(email: string) {
     const response = await api.post("/auth/resend-otp", { email });
-    return response.data.data;
+    return response.data.data as { sent: boolean; testOtp?: string };
   },
 
-  async me(): Promise<User> {
+  async me() {
     const response = await api.get("/auth/me");
-    return response.data.data;
+    return response.data.data as User;
   },
 
-  async updateProfile(input: { name: string }): Promise<User> {
+  async updateProfile(input: { name: string }) {
     const response = await api.patch("/auth/me", input);
-    return response.data.data;
+    return response.data.data as User;
   },
 
-  async logout(): Promise<void> {
-    try {
-      await api.post("/auth/logout");
-    } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) throw error;
-    }
+  async logout() {
+    await api.post("/auth/logout");
   },
 
-  async twoFactorStatus(): Promise<{
-    twoFactorEnabled: boolean;
-    backupCodesCount: number;
-  }> {
+  async twoFactorStatus() {
     const response = await api.get("/auth/2fa/status");
-    return response.data.data;
+    return response.data.data as {
+      twoFactorEnabled: boolean;
+      backupCodesCount: number;
+    };
   },
 
-  async setupTwoFactor(): Promise<{ qrDataUrl: string; secret: string }> {
+  async setupTwoFactor() {
     const response = await api.post("/auth/2fa/setup");
-    return response.data.data;
+    return response.data.data as { qrDataUrl: string; secret: string };
   },
 
-  async verifyTwoFactor(token: string): Promise<{ backupCodes: string[] }> {
+  async verifyTwoFactor(token: string) {
     const response = await api.post("/auth/2fa/verify", { token });
-    return response.data.data;
+    return response.data.data as { backupCodes: string[] };
   },
 
-  async disableTwoFactor(token: string): Promise<void> {
+  async disableTwoFactor(token: string) {
     await api.post("/auth/2fa/disable", { token });
   },
-
-  clearSession: clearAuthCookies,
 };
 
 export { ApiError };

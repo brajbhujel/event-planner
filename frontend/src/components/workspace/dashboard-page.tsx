@@ -11,14 +11,15 @@ import {
   EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { getDashboard } from "@/lib/actions";
+import { eventsService } from "@/services/events.service";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useWorkspaceUser } from "./user-context";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { EventTable, VisibilityBadge } from "./event-table";
+import { VisibilityBadge } from "./event-table";
+import { RecentEventsList } from "./recent-events-list";
 
 function DashboardSkeleton() {
   return (
@@ -50,7 +51,7 @@ export function DashboardPage() {
     startTransition(async () => {
       try {
         setError(null);
-        const result = await getDashboard();
+        const result = await eventsService.dashboard();
         if (!cancelled) setDashboard(result);
       } catch {
         if (!cancelled) setError("Could not load dashboard. Try again.");
@@ -155,7 +156,7 @@ export function DashboardPage() {
               </Link>
             </Button>
           </CardHeader>
-          <EventTable events={data.recent} />
+          <RecentEventsList events={data.recent} />
         </Card>
         <Card className="flex flex-col">
           <CardHeader>

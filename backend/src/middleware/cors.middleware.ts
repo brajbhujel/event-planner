@@ -10,6 +10,7 @@ export default function cors(req: Request, res: Response, next: NextFunction) {
 
     if (origin && allowedOrigins.includes(origin)) {
         res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Vary", "Origin");
     }
 
     res.setHeader("Access-Control-Allow-Credentials", "true");

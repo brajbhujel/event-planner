@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { listSchema } from "@/validations";
-import { listEvents, getTags } from "@/lib/actions";
+import { eventsService } from "@/services/events.service";
 import {
   eventsCacheKey,
   useWorkspaceStore,
@@ -75,7 +75,7 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
         const jobs: Promise<void>[] = [];
         if (!cached) {
           jobs.push(
-            listEvents(Object.fromEntries(query)).then((result) => {
+            eventsService.list(Object.fromEntries(query)).then((result) => {
               if (!cancelled) {
                 setEvents(cacheKey, {
                   data: result.data,
@@ -87,7 +87,7 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
         }
         if (!tags) {
           jobs.push(
-            getTags().then((list) => {
+            eventsService.tags().then((list) => {
               if (!cancelled) setTags(list);
             }),
           );

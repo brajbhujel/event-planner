@@ -1,14 +1,17 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
+import type { Event } from "@/validations";
 import { eventsService } from "@/services/events.service";
-import { requireUser } from "@/lib/auth";
+import { useWorkspaceUser } from "./user-context";
 import { PageHeading } from "@/components/page-heading";
 import { EventForm } from "./event-form";
 
-export async function NewEventPage() {
-  await requireUser();
+export function NewEventPage() {
   return (
     <>
       <Link
@@ -27,17 +30,40 @@ export async function NewEventPage() {
   );
 }
 
-export async function EditEventPage({ id }: { id: string }) {
-  if (!z.uuid().safeParse(id).success) notFound();
-  const user = await requireUser();
-  let event;
-  try {
-    event = await eventsService.get(id);
-  } catch {
-    notFound();
+export function EditEventPage({ id }: { id: string }) {
+  const user = useWorkspaceUser();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    if (!z.uuid().safeParse(id).success) {
+      setMissing(true);
+      return;
+    }
+    let cancelled = false;
+    eventsService
+      .get(id)
+      .then((next) => {
+        if (cancelled) return;
+        if (next.creatorId !== user.id || new Date(next.startsAt) < new Date()) {
+          setMissing(true);
+          return;
+        }
+        setEvent(next);
+      })
+      .catch(() => {
+        if (!cancelled) setMissing(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user.id]);
+
+  if (missing) notFound();
+  if (!event) {
+    return <p className="text-sm text-muted-foreground">Loading event…</p>;
   }
-  if (event.creatorId !== user.id) notFound();
-  if (new Date(event.startsAt) < new Date()) notFound();
+
   return (
     <>
       <Link

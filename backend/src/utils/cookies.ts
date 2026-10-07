@@ -30,6 +30,8 @@ export function setSessionCookies(res: Response, tokens: TokenPair) {
 }
 
 export function clearSessionCookies(res: Response) {
-  res.clearCookie(SESSION_COOKIE, { path: "/" });
-  res.clearCookie(REFRESH_COOKIE, { path: "/" });
+  const secure = env.NODE_ENV === "production";
+  const base = { httpOnly: true, secure, sameSite: "lax" as const, path: "/" };
+  res.clearCookie(SESSION_COOKIE, base);
+  res.clearCookie(REFRESH_COOKIE, base);
 }

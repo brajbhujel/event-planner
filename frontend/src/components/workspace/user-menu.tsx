@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { PersonIcon, ExitIcon } from "@radix-ui/react-icons";
 import type { User } from "@/validations";
 import { initials } from "@/lib/utils";
-import { logout } from "@/lib/actions";
+import { authService } from "@/services/auth.service";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -88,7 +89,13 @@ export function UserMenu({ user }: { user: User }) {
             <Button
               variant="destructive"
               disabled={pending}
-              onClick={() => startTransition(() => logout())}
+              onClick={() =>
+                startTransition(async () => {
+                  await authService.logout();
+                  useWorkspaceStore.getState().invalidate();
+                  router.replace("/login");
+                })
+              }
             >
               {pending ? "Logging out…" : "Log out"}
             </Button>

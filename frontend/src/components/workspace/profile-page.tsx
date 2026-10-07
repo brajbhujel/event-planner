@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
-import type { FormState, User } from "@/validations";
-import { updateProfile } from "@/lib/actions";
+import { useState, useTransition } from "react";
+import { toast } from "@/hooks/use-toast";
+import { profileSchema } from "@/validations";
+import { ApiError } from "@/config/api";
+import { authService } from "@/services/auth.service";
+import { useWorkspaceUser } from "./user-context";
 import { PageHeading } from "@/components/page-heading";
 import { Field } from "@/components/field";
 import { Input } from "@/components/ui/input";
@@ -12,23 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { TwoFactorSettings } from "./two-factor-settings";
 
-export function ProfilePage({ user }: { user: User }) {
-  const router = useRouter();
+export function ProfilePage() {
+  const user = useWorkspaceUser();
   const [name, setName] = useState(user.name);
+  const [fieldError, setFieldError] = useState<string[] | undefined>();
+  const [pending, startTransition] = useTransition();
   const dirty = name.trim() !== user.name;
-
-  const [state, dispatch, pending] = useActionState(
-    async (_prev: FormState, form: FormData) => {
-      const next = await updateProfile(_prev, form);
-      if (next.success) {
-        toast.success(next.success);
-        router.refresh();
-      }
-      if (next.error) toast.error(next.error);
-      return next;
-    },
-    {} as FormState,
-  );
 
   return (
     <>
@@ -41,8 +31,34 @@ export function ProfilePage({ user }: { user: User }) {
           <h2 className="text-sm font-semibold">Account</h2>
         </CardHeader>
         <CardContent>
-          <form action={dispatch} className="space-y-5">
-            <Field id="name" label="Full name" error={state.fields?.name}>
+          <form
+            className="space-y-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const parsed = profileSchema.safeParse({ name });
+              if (!parsed.success) {
+                setFieldError(
+                  parsed.error.flatten().fieldErrors.name,
+                );
+                return;
+              }
+              setFieldError(undefined);
+              startTransition(async () => {
+                try {
+                  await authService.updateProfile(parsed.data);
+                  toast.success("Profile updated.");
+                  window.location.reload();
+                } catch (error) {
+                  toast.error(
+                    error instanceof ApiError
+                      ? error.message
+                      : "Could not update profile.",
+                  );
+                }
+              });
+            }}
+          >
+            <Field id="name" label="Full name" error={fieldError}>
               <Input
                 id="name"
                 name="name"

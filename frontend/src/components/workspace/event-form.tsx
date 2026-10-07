@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, startOfDay } from "date-fns";
@@ -13,8 +13,9 @@ import {
 } from "@radix-ui/react-icons";
 import { eventSchema, type Event, type FormState } from "@/validations";
 import { z } from "zod";
-import toast from "react-hot-toast";
-import { saveEvent } from "@/lib/actions";
+import { toast } from "@/hooks/use-toast";
+import { ApiError } from "@/config/api";
+import { eventsService } from "@/services/events.service";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { dateInput, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -93,13 +94,10 @@ export function EventForm({ event }: { event?: Event }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedRef = useRef(false);
-  const [state, action, pending] = useActionState(
-    saveEvent.bind(null, event?.id ?? null),
-    {} as FormState,
-  );
+  const [pending, startTransition] = useTransition();
   const [local, setLocal] = useState<FormState>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const errors = local.fields ?? state.fields;
+  const errors = local.fields;
 
   const initial = useMemo(() => {
     const start = event ? dateInput(event.startsAt) : { date: "", time: "09:00" };
@@ -148,38 +146,59 @@ export function EventForm({ event }: { event?: Event }) {
     tags.join(",") !== initial.tags.join(",") ||
     inviteEmails.join(",") !== initial.inviteEmails.join(",");
 
-  useEffect(() => {
-    if (state.error) toast.error(state.error);
-    if (state.success && state.id) {
-      useWorkspaceStore.getState().invalidate();
-      toast.success(state.success);
-      router.push(`/events/${state.id}`);
+  const buildInput = () =>
+    eventSchema.safeParse({
+      title,
+      description,
+      location,
+      visibility,
+      startsAt: `${date}T${time}:00+05:45`,
+      endsAt: multiDay && endDate ? `${endDate}T${endTime}:00+05:45` : null,
+      tags,
+      inviteEmails,
+    });
+
+  const submitEvent = () => {
+    const parsed = buildInput();
+    if (!parsed.success) {
+      setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
+      toast.error("Check the highlighted fields.");
+      return;
     }
-  }, [state, router]);
+    startTransition(async () => {
+      try {
+        const result = event?.id
+          ? await eventsService.update(event.id, parsed.data)
+          : await eventsService.create(parsed.data);
+        useWorkspaceStore.getState().invalidate();
+        toast.success(event ? "Event updated." : "Event created.");
+        router.push(`/events/${result.id}`);
+      } catch (error) {
+        toast.error(
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Please try again.",
+        );
+        if (error instanceof ApiError && error.fields) {
+          setLocal({ fields: error.fields });
+        }
+      }
+    });
+  };
 
   return (
     <>
       <form
         ref={formRef}
-        action={action}
         className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
         onSubmit={(e) => {
+          e.preventDefault();
           if (confirmedRef.current) {
             confirmedRef.current = false;
+            submitEvent();
             return;
           }
-          e.preventDefault();
-          const parsed = eventSchema.safeParse({
-            title,
-            description,
-            location,
-            visibility,
-            startsAt: `${date}T${time}:00+05:45`,
-            endsAt:
-              multiDay && endDate ? `${endDate}T${endTime}:00+05:45` : null,
-            tags,
-            inviteEmails,
-          });
+          const parsed = buildInput();
           if (!parsed.success) {
             setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
             toast.error("Check the highlighted fields.");
@@ -189,18 +208,6 @@ export function EventForm({ event }: { event?: Event }) {
           setConfirmOpen(true);
         }}
       >
-        <input type="hidden" name="date" value={date} />
-        <input type="hidden" name="time" value={time} />
-        <input type="hidden" name="multiDay" value={String(multiDay)} />
-        <input type="hidden" name="endDate" value={endDate} />
-        <input type="hidden" name="endTime" value={endTime} />
-        <input type="hidden" name="visibility" value={visibility} />
-        <input type="hidden" name="tags" value={tags.join(",")} />
-        <input type="hidden" name="inviteEmails" value={inviteEmails.join(",")} />
-        <input type="hidden" name="title" value={title} />
-        <input type="hidden" name="description" value={description} />
-        <input type="hidden" name="location" value={location} />
-
         <div className="space-y-6">
           <Card>
             <CardHeader>

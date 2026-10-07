@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -9,8 +12,9 @@ import {
   PinRightIcon,
   PersonIcon,
 } from "@radix-ui/react-icons";
+import type { Event } from "@/validations";
 import { eventsService } from "@/services/events.service";
-import { requireUser } from "@/lib/auth";
+import { useWorkspaceUser } from "./user-context";
 import { formatDate, formatTime, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -21,20 +25,37 @@ import { DeleteEvent } from "./delete-event";
 import { RsvpForm } from "./rsvp-form";
 import { AttendeesList } from "./attendees-list";
 
-export async function EventDetailPage({
-  id,
-}: {
-  id: string;
-  saved?: string;
-}) {
-  if (!z.uuid().safeParse(id).success) notFound();
-  const user = await requireUser();
-  let event;
-  try {
-    event = await eventsService.get(id);
-  } catch {
-    notFound();
+export function EventDetailPage({ id }: { id: string }) {
+  const user = useWorkspaceUser();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    if (!z.uuid().safeParse(id).success) {
+      setMissing(true);
+      return;
+    }
+    let cancelled = false;
+    eventsService
+      .get(id)
+      .then((next) => {
+        if (!cancelled) setEvent(next);
+      })
+      .catch(() => {
+        if (!cancelled) setMissing(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (missing) notFound();
+  if (!event) {
+    return (
+      <p className="text-sm text-muted-foreground">Loading event…</p>
+    );
   }
+
   const owner = event.creatorId === user.id;
   const past = new Date(event.startsAt) < new Date();
 

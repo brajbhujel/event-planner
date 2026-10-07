@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { resendOtpAction, verifyEmailAction } from "@/lib/actions";
-import type { FormState } from "@/validations";
+import { ApiError } from "@/config/api";
+import { authService } from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { CodeInput } from "@/components/ui/code-input";
 
@@ -15,18 +15,17 @@ export function VerifyEmailPage() {
   const email = params.get("email") ?? "";
   const [otp, setOtp] = useState("");
   const [testOtp, setTestOtp] = useState(params.get("testOtp") ?? "");
-  const [state, action, pending] = useActionState(
-    verifyEmailAction,
-    {} as FormState,
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [pending, startVerify] = useTransition();
   const [resendPending, startResend] = useTransition();
   const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!state.success) return;
+    if (!success) return;
     const t = setTimeout(() => router.push("/login"), 1200);
     return () => clearTimeout(t);
-  }, [state.success, router]);
+  }, [success, router]);
 
   if (!email) {
     return (
@@ -65,20 +64,36 @@ export function VerifyEmailPage() {
         </p>
       ) : null}
 
-      {state.success ? (
+      {success ? (
         <p className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-primary">
-          {state.success} Redirecting to sign in…
+          {success} Redirecting to sign in…
         </p>
       ) : (
-        <form action={action} className="space-y-5">
-          <input type="hidden" name="email" value={email} />
-          <input type="hidden" name="code" value={otp} />
-          {state.error ? (
+        <form
+          className="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            startVerify(async () => {
+              try {
+                await authService.verifyEmail({ email, code: otp });
+                setError(null);
+                setSuccess("Email verified.");
+              } catch (err) {
+                setError(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Could not verify email.",
+                );
+              }
+            });
+          }}
+        >
+          {error ? (
             <p
               role="alert"
               className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive"
             >
-              {state.error}
+              {error}
             </p>
           ) : null}
           <CodeInput value={otp} onChange={setOtp} autoFocus />
@@ -94,15 +109,21 @@ export function VerifyEmailPage() {
         <button
           type="button"
           className="font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
-          disabled={resendPending || Boolean(state.success)}
+          disabled={resendPending || Boolean(success)}
           onClick={() =>
             startResend(async () => {
-              const result = await resendOtpAction(email);
-              if (result.error) setResendMsg(result.error);
-              else {
-                setResendMsg(result.success ?? "Code sent.");
+              try {
+                const result = await authService.resendOtp(email);
+                setResendMsg("Code sent.");
                 if (result.testOtp) setTestOtp(result.testOtp);
                 setOtp("");
+                setError(null);
+              } catch (err) {
+                setResendMsg(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Could not resend code.",
+                );
               }
             })
           }

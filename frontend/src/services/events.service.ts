@@ -1,4 +1,3 @@
-import "@/config/api-auth";
 import api from "@/config/api";
 import type { Dashboard, Event, EventInput, EventList } from "@/validations";
 

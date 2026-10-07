@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,14 +8,10 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from "@radix-ui/react-icons";
-import {
-  authenticate,
-  completeTwoFactorLogin,
-  resendOtpAction,
-  verifyEmailAction,
-} from "@/lib/actions";
 import { signupSchema, loginSchema, type FormState } from "@/validations";
 import { z } from "zod";
+import { ApiError } from "@/config/api";
+import { authService } from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/field";
@@ -37,35 +33,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [useBackup, setUseBackup] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [local, setLocal] = useState<FormState>({});
+  const [error, setError] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [tfError, setTfError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const [verifyPending, startVerify] = useTransition();
   const [resendPending, startResend] = useTransition();
+  const [tfPending, startTf] = useTransition();
 
-  const [state, action, pending] = useActionState(
-    authenticate.bind(null, mode),
-    {} as FormState,
-  );
-  const [tfState, tfAction, tfPending] = useActionState(
-    completeTwoFactorLogin,
-    {} as FormState,
-  );
-
-  useEffect(() => {
-    if (state.needsVerification && state.email) {
-      setEmail(state.email);
-      setTestOtp(state.testOtp ?? "");
-      setOtp("");
-      setVerifyError(null);
-      setStep("verify");
-    }
-    if (state.requires2FA && state.userId) {
-      setTwoFactorUserId(state.userId);
-      setTwoFactorCode("");
-      setStep("twoFactor");
-    }
-  }, [state]);
-
-  const errors = local.fields ?? state.fields;
+  const errors = local.fields;
 
   if (step === "verify") {
     return (
@@ -95,15 +71,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           disabled={verifyPending || otp.length !== 6}
           onClick={() =>
             startVerify(async () => {
-              const form = new FormData();
-              form.set("email", email);
-              form.set("code", otp);
-              const result = await verifyEmailAction({}, form);
-              if (result.error) {
-                setVerifyError(result.error);
-                return;
+              try {
+                await authService.verifyEmail({ email, code: otp });
+                router.push("/login");
+              } catch (err) {
+                setVerifyError(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Could not verify email.",
+                );
               }
-              router.push("/login");
             })
           }
         >
@@ -116,12 +93,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           disabled={resendPending}
           onClick={() =>
             startResend(async () => {
-              const result = await resendOtpAction(email);
-              if (result.error) setVerifyError(result.error);
-              else {
+              try {
+                const result = await authService.resendOtp(email);
                 setVerifyError(null);
                 if (result.testOtp) setTestOtp(result.testOtp);
                 setOtp("");
+              } catch (err) {
+                setVerifyError(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Could not resend code.",
+                );
               }
             })
           }
@@ -141,20 +123,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   if (step === "twoFactor") {
     return (
-      <form action={tfAction} className="space-y-5">
-        <input type="hidden" name="userId" value={twoFactorUserId} />
-        <input type="hidden" name="backup" value={useBackup ? "true" : "false"} />
-        <input type="hidden" name="code" value={twoFactorCode} />
+      <div className="space-y-5">
         <p className="text-sm text-muted-foreground">
           Two-factor authentication is enabled. Enter your{" "}
           {useBackup ? "backup code" : "authenticator code"} to continue.
         </p>
-        {tfState.error ? (
+        {tfError ? (
           <p
             role="alert"
             className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive"
           >
-            {tfState.error}
+            {tfError}
           </p>
         ) : null}
         {useBackup ? (
@@ -183,6 +162,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             tfPending ||
             (useBackup ? twoFactorCode.length < 8 : twoFactorCode.length !== 6)
           }
+          onClick={() =>
+            startTf(async () => {
+              try {
+                await authService.completeTwoFactor({
+                  userId: twoFactorUserId,
+                  code: twoFactorCode,
+                  backup: useBackup,
+                });
+                router.replace("/dashboard");
+              } catch (err) {
+                setTfError(
+                  err instanceof ApiError
+                    ? err.message
+                    : "Could not complete 2FA.",
+                );
+              }
+            })
+          }
         >
           {tfPending ? "Verifying…" : "Verify and sign in"}
           <ArrowRightIcon />
@@ -206,32 +203,78 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         >
           Back to password
         </button>
-      </form>
+      </div>
     );
   }
 
   return (
     <form
-      action={action}
       className="space-y-5"
       onSubmit={(e) => {
-        const parsed = (signup ? signupSchema : loginSchema).safeParse({
-          name: signup ? name : undefined,
-          email,
-          password,
+        e.preventDefault();
+        setLocal({});
+        setError(null);
+        startTransition(async () => {
+          try {
+            if (signup) {
+              const parsed = signupSchema.safeParse({ name, email, password });
+              if (!parsed.success) {
+                setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
+                return;
+              }
+              const data = await authService.signup(parsed.data);
+              if (data.needsVerification && data.email) {
+                setEmail(data.email);
+                setTestOtp(data.testOtp ?? "");
+                setOtp("");
+                setVerifyError(null);
+                setStep("verify");
+                return;
+              }
+              setError("Unexpected signup response.");
+              return;
+            }
+            const parsed = loginSchema.safeParse({ email, password });
+            if (!parsed.success) {
+              setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
+              return;
+            }
+            const result = await authService.login(parsed.data);
+            if (result.kind === "needsVerification") {
+              setEmail(result.email);
+              setTestOtp(result.testOtp ?? "");
+              setOtp("");
+              setVerifyError(null);
+              setStep("verify");
+              return;
+            }
+            if (result.kind === "requires2FA") {
+              setTwoFactorUserId(result.userId);
+              setTwoFactorCode("");
+              setTfError(null);
+              setStep("twoFactor");
+              return;
+            }
+            router.replace("/dashboard");
+          } catch (err) {
+            setError(
+              err instanceof ApiError
+                ? err.message
+                : "Something went wrong. Please try again.",
+            );
+            if (err instanceof ApiError && err.fields) {
+              setLocal({ fields: err.fields });
+            }
+          }
         });
-        if (!parsed.success) {
-          e.preventDefault();
-          setLocal({ fields: z.flattenError(parsed.error).fieldErrors });
-        } else setLocal({});
       }}
     >
-      {state.error ? (
+      {error ? (
         <p
           role="alert"
           className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive"
         >
-          {state.error}
+          {error}
         </p>
       ) : null}
       {signup ? (

@@ -9,7 +9,6 @@ import {
 } from "../validations";
 import { z } from "zod";
 import { db } from "../config/db";
-import { env } from "../config/env";
 import { authGuard } from "../middleware/auth";
 import { AppError } from "../middleware/error";
 import { issueTokenPair, verifyRefreshToken } from "../services/tokens";
@@ -46,23 +45,20 @@ function publicUser(row: {
   };
 }
 
-async function createSession(user: {
+function issueAuth(user: {
   id: string;
   name: string;
   email: string;
   email_verified_at?: Date | string | null;
   two_factor_enabled?: boolean;
 }) {
-  const id = randomUUID();
-  await db("sessions").where("expires_at", "<", db.fn.now()).delete();
-  await db("sessions").insert({
-    id,
-    user_id: user.id,
-    expires_at: new Date(Date.now() + env.REFRESH_TTL * 1000),
-  });
   return {
     user: publicUser(user),
-    tokens: issueTokenPair(user.id, id),
+    tokens: issueTokenPair({
+      sub: user.id,
+      name: user.name,
+      email: user.email,
+    }),
   };
 }
 
@@ -153,9 +149,9 @@ authRoutes.post("/login", async (req, res) => {
     });
     return;
   }
-  const session = await createSession(user);
-  setSessionCookies(res, session.tokens);
-  res.json({ data: { user: session.user } });
+  const auth = issueAuth(user);
+  setSessionCookies(res, auth.tokens);
+  res.json({ data: { user: auth.user } });
 });
 
 authRoutes.post("/2fa/session", async (req, res) => {
@@ -172,9 +168,9 @@ authRoutes.post("/2fa/session", async (req, res) => {
     throw new AppError(400, "Two-factor authentication is not enabled.");
   }
   await assertTotpOrBackup(user, input.code, { preferBackup: input.backup });
-  const session = await createSession(user);
-  setSessionCookies(res, session.tokens);
-  res.json({ data: { user: session.user } });
+  const auth = issueAuth(user);
+  setSessionCookies(res, auth.tokens);
+  res.json({ data: { user: auth.user } });
 });
 
 authRoutes.post("/refresh", async (req, res) => {
@@ -186,47 +182,27 @@ authRoutes.post("/refresh", async (req, res) => {
     throw new AppError(401, "Refresh token required.");
   }
 
-  let payload: { sub?: string; jti?: string };
+  let payload: { sub?: string };
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
     throw new AppError(401, "Your session has expired. Please sign in again.");
   }
 
-  const session = await db("sessions as s")
-    .join("users as u", "u.id", "s.user_id")
-    .where({ "s.id": payload.jti, "u.id": payload.sub })
-    .where("s.expires_at", ">", db.fn.now())
-    .select(
-      "s.id as sessionId",
-      "u.id",
-      "u.name",
-      "u.email",
-      "u.email_verified_at",
-      "u.two_factor_enabled",
-    )
-    .first();
-
-  if (!session) {
+  const user = await db("users").where({ id: payload.sub }).first();
+  if (!user) {
     throw new AppError(401, "Your session has expired. Please sign in again.");
   }
 
-  const newSessionId = randomUUID();
-  await db("sessions").where({ id: session.sessionId }).delete();
-  await db("sessions").insert({
-    id: newSessionId,
-    user_id: session.id,
-    expires_at: new Date(Date.now() + env.REFRESH_TTL * 1000),
-  });
-
-  const tokens = issueTokenPair(session.id, newSessionId);
-  setSessionCookies(res, tokens);
-  res.json({ data: { user: publicUser(session) } });
+  const auth = issueAuth(user);
+  setSessionCookies(res, auth.tokens);
+  res.json({ data: { user: auth.user } });
 });
 
 authRoutes.get("/me", authGuard, async (req, res) => {
   const row = await db("users").where({ id: req.user.id }).first();
-  res.json({ data: publicUser(row ?? req.user) });
+  if (!row) throw new AppError(401, "Please sign in to continue.");
+  res.json({ data: publicUser(row) });
 });
 
 authRoutes.patch("/me", authGuard, async (req, res) => {
@@ -244,8 +220,7 @@ authRoutes.patch("/me", authGuard, async (req, res) => {
   res.json({ data: publicUser(user) });
 });
 
-authRoutes.post("/logout", authGuard, async (req, res) => {
-  await db("sessions").where({ id: req.sessionId }).delete();
+authRoutes.post("/logout", async (_req, res) => {
   clearSessionCookies(res);
   res.status(204).end();
 });

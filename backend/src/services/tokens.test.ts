@@ -23,18 +23,26 @@ describe("generateReferenceCode", () => {
 
 describe("token pair", () => {
   it("issues access and refresh with different typ claims", () => {
-    const pair = issueTokenPair("user-1", "session-1");
+    const pair = issueTokenPair({
+      sub: "user-1",
+      name: "Demo",
+      email: "demo@example.com",
+    });
     const access = verifyAccessToken(pair.accessToken);
     const refresh = verifyRefreshToken(pair.refreshToken);
     expect(access.sub).toBe("user-1");
-    expect(access.jti).toBe("session-1");
+    expect(access.name).toBe("Demo");
+    expect(access.email).toBe("demo@example.com");
     expect(refresh.sub).toBe("user-1");
-    expect(refresh.jti).toBe("session-1");
     expect(refresh.typ).toBe("refresh");
   });
 
   it("rejects refresh token as access", () => {
-    const pair = issueTokenPair("user-1", "session-1");
+    const pair = issueTokenPair({
+      sub: "user-1",
+      name: "Demo",
+      email: "demo@example.com",
+    });
     expect(() => verifyAccessToken(pair.refreshToken)).toThrow();
   });
 });

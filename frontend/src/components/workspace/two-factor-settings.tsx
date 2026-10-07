@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import toast from "react-hot-toast";
-import {
-  disableTwoFactorAction,
-  getTwoFactorStatusAction,
-  setupTwoFactorAction,
-  verifyTwoFactorAction,
-} from "@/lib/actions";
+import { toast } from "@/hooks/use-toast";
+import { authService } from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -47,7 +42,7 @@ export function TwoFactorSettings({
   const refreshStatus = () =>
     start(async () => {
       try {
-        const status = await getTwoFactorStatusAction();
+        const status = await authService.twoFactorStatus();
         setEnabled(status.twoFactorEnabled);
         setBackupCount(status.backupCodesCount);
       } catch {
@@ -148,7 +143,7 @@ export function TwoFactorSettings({
                   onClick={() =>
                     start(async () => {
                       try {
-                        const data = await setupTwoFactorAction();
+                        const data = await authService.setupTwoFactor();
                         setQr(data.qrDataUrl);
                         setSecret(data.secret);
                         setStep("scan-qr");
@@ -208,7 +203,7 @@ export function TwoFactorSettings({
                     onClick={() =>
                       start(async () => {
                         try {
-                          const data = await verifyTwoFactorAction(token);
+                          const data = await authService.verifyTwoFactor(token);
                           setCodes(data.backupCodes);
                           setEnabled(true);
                           setBackupCount(data.backupCodes.length);
@@ -297,7 +292,7 @@ export function TwoFactorSettings({
                     onClick={() =>
                       start(async () => {
                         try {
-                          await disableTwoFactorAction(token);
+                          await authService.disableTwoFactor(token);
                           setEnabled(false);
                           setBackupCount(0);
                           setOpen(false);

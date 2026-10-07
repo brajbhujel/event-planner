@@ -1,9 +1,11 @@
 "use client";
+
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
+import { toast } from "@/hooks/use-toast";
 import type { Event } from "@/validations";
-import { updateRsvp } from "@/lib/actions";
+import { ApiError } from "@/config/api";
+import { eventsService } from "@/services/events.service";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 
@@ -38,14 +40,18 @@ export function RsvpForm({ event, past }: { event: Event; past: boolean }) {
             disabled={pending || past}
             onClick={() =>
               startTransition(async () => {
-                const result = await updateRsvp(event.id, status);
-                if (result.error) {
-                  toast.error(result.error);
-                  return;
+                try {
+                  await eventsService.rsvp(event.id, status);
+                  useWorkspaceStore.getState().invalidate();
+                  toast.success("RSVP updated");
+                  router.refresh();
+                } catch (error) {
+                  toast.error(
+                    error instanceof ApiError
+                      ? error.message
+                      : "Could not update RSVP.",
+                  );
                 }
-                useWorkspaceStore.getState().invalidate();
-                toast.success("RSVP updated");
-                router.refresh();
               })
             }
           >

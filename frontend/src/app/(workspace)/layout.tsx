@@ -1,11 +1,9 @@
-import { requireUser } from "@/lib/auth";
-import { AppShell } from "@/components/workspace/app-shell";
+import { AuthGuard } from "@/components/workspace/authGuard";
 
-export default async function WorkspaceLayout({
+export default function WorkspaceLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
-  return <AppShell user={user}>{children}</AppShell>;
+  return <AuthGuard>{children}</AuthGuard>;
 }

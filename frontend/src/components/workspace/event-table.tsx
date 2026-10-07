@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowRightIcon,
@@ -20,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { TagChip } from "@/components/tag-input";
+import { useWorkspaceUser } from "./user-context";
 
 export function VisibilityBadge({
   visibility,
@@ -27,8 +30,16 @@ export function VisibilityBadge({
   visibility: "public" | "private" | "invite";
 }) {
   const meta = {
-    public: { icon: GlobeIcon, label: "Public", className: "border-primary/10 bg-primary/5 text-primary" },
-    invite: { icon: EnvelopeClosedIcon, label: "Invite only", className: "border-amber-200 bg-amber-50 text-amber-800" },
+    public: {
+      icon: GlobeIcon,
+      label: "Public",
+      className: "border-primary/10 bg-primary/5 text-primary",
+    },
+    invite: {
+      icon: EnvelopeClosedIcon,
+      label: "Invite only",
+      className: "border-amber-200 bg-amber-50 text-amber-800",
+    },
     private: { icon: LockClosedIcon, label: "Private", className: "" },
   }[visibility];
   const Icon = meta.icon;
@@ -39,6 +50,20 @@ export function VisibilityBadge({
     </Badge>
   );
 }
+
+export function InvitedBadge() {
+  return (
+    <Badge className="border-emerald-300 bg-emerald-50 text-emerald-800">
+      <EnvelopeClosedIcon />
+      Invited
+    </Badge>
+  );
+}
+
+export function isInvitedFor(userId: string, event: Event) {
+  return event.visibility === "invite" && event.creatorId !== userId;
+}
+
 export function EventTable({
   events,
   filtered = false,
@@ -46,6 +71,8 @@ export function EventTable({
   events: Event[];
   filtered?: boolean;
 }) {
+  const user = useWorkspaceUser();
+
   if (!events.length)
     return (
       <EmptyState
@@ -140,7 +167,10 @@ export function EventTable({
                   </p>
                 </TableCell>
                 <TableCell>
-                  <VisibilityBadge visibility={event.visibility} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <VisibilityBadge visibility={event.visibility} />
+                    {isInvitedFor(user.id, event) ? <InvitedBadge /> : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Link
@@ -165,7 +195,10 @@ export function EventTable({
           >
             <div className="flex items-start justify-between gap-3">
               <h3 className="font-medium">{event.title}</h3>
-              <VisibilityBadge visibility={event.visibility} />
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                <VisibilityBadge visibility={event.visibility} />
+                {isInvitedFor(user.id, event) ? <InvitedBadge /> : null}
+              </div>
             </div>
             {event.description ? (
               <p className="line-clamp-2 text-xs text-muted-foreground">

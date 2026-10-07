@@ -1,5 +1,4 @@
 import type { RequestHandler } from "express";
-import { db } from "../config/db";
 import { AppError } from "./error";
 import { verifyAccessToken } from "../services/tokens";
 import { SESSION_COOKIE } from "../utils/cookies";
@@ -9,7 +8,6 @@ declare global {
   namespace Express {
     interface Request {
       user: User;
-      sessionId: string;
     }
   }
 }
@@ -20,25 +18,15 @@ export const authGuard: RequestHandler = async (req, _res, next) => {
     req.cookies?.[SESSION_COOKIE];
   if (!token) throw new AppError(401, "Please sign in to continue.");
 
-  let payload: { sub?: string; jti?: string };
   try {
-    payload = verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
+    req.user = {
+      id: payload.sub!,
+      name: typeof payload.name === "string" ? payload.name : "",
+      email: typeof payload.email === "string" ? payload.email : "",
+    };
+    next();
   } catch {
     throw new AppError(401, "Your session has expired. Please sign in again.");
   }
-
-  const user = await db("sessions as s")
-    .join("users as u", "u.id", "s.user_id")
-    .where({ "s.id": payload.jti, "u.id": payload.sub })
-    .where("s.expires_at", ">", db.fn.now())
-    .select("u.id", "u.name", "u.email")
-    .first();
-
-  if (!user) {
-    throw new AppError(401, "Your session has expired. Please sign in again.");
-  }
-
-  req.user = user;
-  req.sessionId = payload.jti!;
-  next();
 };
