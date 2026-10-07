@@ -1,17 +1,17 @@
 # Event Planner
 
-Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) apps for the event-planning assessment.
+Separate `backend/` (Express + Knex + Postgres) and `frontend/` (Next.js) app
 
 ## Engineering decisions
 
-1. **Split API and UI** — REST API is independently demoable (Swagger); Next.js is a cookie-aware client, not a BFF soup.
-2. **Knex + Postgres, no ORM** — Matches the “query builder, not ORM” requirement; migrations live in `backend/db/migrations`.
-3. **Access + refresh JWT bound to a `sessions` row** — Short-lived access (~15m), longer refresh (~7d), logout deletes the session (real revoke). Refresh rotates the session id.
-4. **Email OTP (10 min) + optional TOTP 2FA** — Optional advanced auth from the brief; login 2FA returns HTTP 200 `{ requires2FA, userId }` (challenge, not an error).
+1. **Split API and UI** — REST API is independently demoable (Swagger); Next.js is a cookie-aware client.
+2. **Knex + Postgres** — Matches the “query builder, not ORM” requirement; migrations live in `backend/db/migrations`.
+3. **Access + refresh JWT bound to a `sessions` row** — Short-lived access (~15m), longer refresh (~7d), logout deletes the session. Refresh rotates the session id.
+4. **Email OTP (10 min) + optional TOTP 2FA** — Optional advanced auth from the brief; login 2FA returns HTTP 200 `{ requires2FA, userId }`.
 5. **`visibleEvents` helper** — One place for public / creator / invite authorization used by list, detail, and dashboard.
 6. **Normalized tags (M2M) + invitations table** — Clean filtering; invite-only is a deliberate extension of public/private.
 7. **Zustand list/dashboard cache** — Soft navigation does not skeleton-flash; invalidate after mutations.
-8. **Zod on both sides** — Same rules for create/edit/auth; controlled React forms so validation does not wipe input.
+8. **Zod on both sides** — Same rules for create/edit/auth.
 
 ## Setup
 
@@ -43,4 +43,4 @@ Compose reads `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` from `backend/.
 2. Postgres is an acceptable relational DB (brief allows any RDBMS).
 3. Next.js App Router is acceptable as the React + TypeScript frontend.
 4. Event datetimes in the UI use Nepal offset (`+05:45`).
-5. “Popularity” sort from the brief is not implemented; we sort by date or created time (`goingCount` is available to extend).
+5. “Popularity” sort from the brief is not implemented; we sort by date or created time.
