@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { listSchema } from "@/validations";
-import { eventsService } from "@/services/events.service";
 import {
   eventsCacheKey,
   useWorkspaceStore,
@@ -32,10 +31,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
   const searchParams = useSearchParams();
   const eventsByKey = useWorkspaceStore((s) => s.eventsByKey);
   const tags = useWorkspaceStore((s) => s.tags);
-  const setEvents = useWorkspaceStore((s) => s.setEvents);
-  const setTags = useWorkspaceStore((s) => s.setTags);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const error = useWorkspaceStore((s) => s.error);
+  const loadEvents = useWorkspaceStore((s) => s.loadEvents);
+  const loadTags = useWorkspaceStore((s) => s.loadTags);
 
   const filters = useMemo(() => {
     const raw = Object.fromEntries(
@@ -55,10 +53,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
   }, [searchParams, mine]);
 
   const query = useMemo(() => {
-    const params = new URLSearchParams(
+    return new URLSearchParams(
       Object.entries(filters).map(([key, value]) => [key, String(value)]),
     );
-    return params;
   }, [filters]);
 
   const cacheKey = eventsCacheKey(query);
@@ -66,42 +63,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
   const base = mine ? "/my-events" : "/events";
 
   useEffect(() => {
-    if (cached && tags) return;
-
-    let cancelled = false;
-    startTransition(async () => {
-      try {
-        setError(null);
-        const jobs: Promise<void>[] = [];
-        if (!cached) {
-          jobs.push(
-            eventsService.list(Object.fromEntries(query)).then((result) => {
-              if (!cancelled) {
-                setEvents(cacheKey, {
-                  data: result.data,
-                  pagination: result.pagination,
-                });
-              }
-            }),
-          );
-        }
-        if (!tags) {
-          jobs.push(
-            eventsService.tags().then((list) => {
-              if (!cancelled) setTags(list);
-            }),
-          );
-        }
-        await Promise.all(jobs);
-      } catch {
-        if (!cancelled) setError("Could not load events. Try again.");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cacheKey, cached, tags, query, setEvents, setTags]);
+    void loadEvents(query);
+    void loadTags();
+  }, [query, loadEvents, loadTags]);
 
   const href = (changes: Record<string, string>) => {
     const next = new URLSearchParams(query);
@@ -110,7 +74,6 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
     return `${base}?${next}`;
   };
 
-  const showSkeleton = !cached;
   const filtered = Boolean(
     filters.search ||
     filters.tag ||
@@ -139,9 +102,9 @@ export function EventListPage({ mine = false }: { mine?: boolean }) {
       />
       <Card className="overflow-hidden">
         <EventFilters tags={tags ?? []} defaultPeriod="all" />
-        {error ? (
+        {error && !cached ? (
           <p className="px-5 py-8 text-sm text-destructive">{error}</p>
-        ) : showSkeleton || (pending && !cached) ? (
+        ) : !cached ? (
           <ListSkeleton />
         ) : (
           <>

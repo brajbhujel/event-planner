@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect } from "react";
 import {
   ArrowRightIcon,
   CalendarIcon,
@@ -11,7 +11,6 @@ import {
   EnvelopeClosedIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { eventsService } from "@/services/events.service";
 import { formatDate, formatTime } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useWorkspaceUser } from "./user-context";
@@ -41,32 +40,18 @@ function DashboardSkeleton() {
 export function DashboardPage() {
   const user = useWorkspaceUser();
   const data = useWorkspaceStore((s) => s.dashboard);
-  const setDashboard = useWorkspaceStore((s) => s.setDashboard);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const error = useWorkspaceStore((s) => s.error);
+  const loadDashboard = useWorkspaceStore((s) => s.loadDashboard);
 
   useEffect(() => {
-    if (data) return;
-    let cancelled = false;
-    startTransition(async () => {
-      try {
-        setError(null);
-        const result = await eventsService.dashboard();
-        if (!cancelled) setDashboard(result);
-      } catch {
-        if (!cancelled) setError("Could not load dashboard. Try again.");
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [data, setDashboard]);
+    void loadDashboard();
+  }, [loadDashboard]);
 
-  if (error) {
+  if (error && !data) {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
-  if (!data || (pending && !data)) {
+  if (!data) {
     return (
       <>
         <PageHeading
