@@ -355,6 +355,15 @@ export async function setRsvp(
   return { status };
 }
 
+export async function listTags(userId: string): Promise<string[]> {
+  const tags = await db("tags as t")
+    .join("event_tags as et", "et.tag_id", "t.id")
+    .whereIn("et.event_id", visibleEvents(userId).select("e.id"))
+    .distinct("t.name")
+    .orderBy("t.name");
+  return tags.map((t) => t.name as string);
+}
+
 export async function dashboard(userId: string): Promise<Dashboard> {
   const [counts, nextEvent, recent, months] = await Promise.all([
     visibleEvents(userId)

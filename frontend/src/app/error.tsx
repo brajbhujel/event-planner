@@ -1,22 +1,36 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
-export default function ErrorPage({
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
+const Error = ({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) => {
+  useEffect(() => {
+    console.error("Error caught", /* error */);
+  }, [error]);
+
   return (
-    <div className="rounded-lg border bg-white px-6 py-16 text-center">
-      <h1 className="text-xl font-semibold">We couldn’t load this page</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The server may be temporarily unavailable. Please try again.
+    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 text-center">
+      <h2 className="text-lg font-semibold text-red-500">Oops! Something went wrong.</h2>
+      <p className="text-neutral-800 dark:text-neutral-200 mt-2">
+        An unexpected error occurred. Please try again or contact support.
       </p>
-      <Button onClick={reset} className="mt-6">
-        Try again
-      </Button>
+      <div className="mt-4 flex gap-3 justify-center">
+        {/* Try Again Button */}
+        <button
+          onClick={reset}
+          className="bg-neutral-200 hover:bg-neutral-800 border border-black text-black hover:text-white dark:bg-neutral-800 dark:text-white dark:border-white  dark:hover:border-white px-4 py-2 rounded-md transition-all"
+        >
+          Try Again
+        </button>
+        {/* Navigate Back to Home */}
+        <a
+          href="/"
+          className="bg-neutral-800 hover:bg-neutral-200 dark:bg-neutral-200  hover:border hover:border-black hover:text-black text-white dark:text-black px-4 py-2 rounded-md transition-all"
+        >
+          Go Home
+        </a>
+      </div>
     </div>
   );
-}
+};
+
+export default Error;
