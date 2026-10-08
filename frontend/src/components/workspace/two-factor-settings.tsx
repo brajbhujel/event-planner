@@ -90,7 +90,7 @@ export function TwoFactorSettings({
                 </p>
               ) : (
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Add a second step when signing in
+                  Add a second layer of security to your account by enabling two-factor authentication.
                 </p>
               )}
             </div>

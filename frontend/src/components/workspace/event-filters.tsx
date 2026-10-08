@@ -51,13 +51,13 @@ function TagFilter({
           variant="outline"
           className="h-9 w-full justify-between font-normal capitalize"
         >
-          <span className={cn(!value && "text-muted-foreground")}>
+          <span className={cn(!value && "")}>
             {value || "All tags"}
           </span>
           <ChevronDownIcon className="size-4 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
         <div className="border-b p-2">
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -186,9 +186,9 @@ export function EventFilters({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All</SelectItem>
             <SelectItem value="upcoming">Upcoming</SelectItem>
             <SelectItem value="past">Past</SelectItem>
-            <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
       </div>

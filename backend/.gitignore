@@ -11,3 +11,4 @@ package-lock.json
 .Trashes/
 scripts/
 postman/
+db/dumps/

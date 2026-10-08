@@ -45,4 +45,27 @@ describe("token pair", () => {
     });
     expect(() => verifyAccessToken(pair.refreshToken)).toThrow();
   });
+
+  it("rejects access token as refresh", () => {
+    const pair = issueTokenPair({
+      sub: "user-1",
+      name: "Demo",
+      email: "demo@example.com",
+    });
+    expect(() => verifyRefreshToken(pair.accessToken)).toThrow();
+  });
+
+  it("rejects a garbage string", () => {
+    expect(() => verifyAccessToken("not.a.jwt")).toThrow();
+  });
+
+  it("includes ttl seconds on the pair", () => {
+    const pair = issueTokenPair({
+      sub: "user-1",
+      name: "Demo",
+      email: "demo@example.com",
+    });
+    expect(pair.expiresIn).toBeGreaterThan(0);
+    expect(pair.refreshExpiresIn).toBeGreaterThan(pair.expiresIn);
+  });
 });
